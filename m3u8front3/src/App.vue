@@ -8,13 +8,16 @@
           <el-header>M3u8下载器<el-alert title="success alert" type="success" /></el-header>
           <el-main>
             <div class="grid-content ep-bg-purple">
-              <el-input placeholder="请输入M3u8地址 http://*.*/*.m3u8" v-model="address"  clearable />
-              <el-input placeholder="请输入下载路径" v-model="savePath" clearable></el-input>
-              <el-input placeholder="请输入http代理" v-model="proxy" clearable></el-input>
-              <el-input placeholder="请输入http header,多条使用分号隔开" v-model="headers" clearable></el-input>
+              <el-input placeholder="请输入M3u8地址 http://*.*/*.m3u8" v-model="param.address"  clearable />
+              <el-input placeholder="请输入下载路径" v-model="param.savePath" clearable></el-input>
+              <el-input placeholder="请输入http代理" v-model="param.proxy" clearable></el-input>
+              <el-input placeholder="请输入http header,多条使用分号隔开" v-model="param.headers" clearable></el-input>
             </div>
           </el-main>
-          <el-footer><el-button type="primary" @click="say">开始下载</el-button></el-footer>
+          <el-footer>
+            <el-button type="primary" @click="sayHello">sayHello</el-button>
+            <el-button type="primary" @click="submitTask">开始下载</el-button>
+          </el-footer>
         </el-container>
       </el-col>
       <el-col :span="6">
@@ -30,15 +33,16 @@ export default {
   name: 'App',
   data () {
     return {
-      count: 0,
-      address: '',
-      savePath: './',
-      proxy: '',
-      headers: ''
+      param: {
+        address: '',
+        savePath: './',
+        proxy: '',
+        headers: ''
+      }
     }
   },
   methods:  {
-    say : function(event) {
+    sayHello : function(event) {
       ElMessageBox.alert('This is a message', 'Title', {
         // if you want to disable its autofocus
         // autofocus: false,
@@ -48,6 +52,12 @@ export default {
         },
       })
         invoke('greet', { name: 'World' })
+          // `invoke` returns a Promise
+          .then((response) => console.log(response))
+    },
+    submitTask : function(event) {
+        let pam = JSON.stringify(this.param)
+        invoke('submit_task', { paramStr: pam })
           // `invoke` returns a Promise
           .then((response) => console.log(response))
     }
