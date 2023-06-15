@@ -13,7 +13,7 @@ mod str_util;
 
 fn main() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![greet,submit_task])
+    .invoke_handler(tauri::generate_handler![greet,submit_task, combine])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
@@ -28,12 +28,13 @@ pub struct DownParam {
     savePath: String,
     proxy: Option<String>,
     headers: Option<String>,
+    clipDir: Option<String>,
 }
 #[tauri::command]
 fn submit_task(param_str: &str) -> &str{
   let param: DownParam = serde_json::from_str(param_str).unwrap();
   println!("deserialized = {:?}", param);
-  return "chenggong==";
+  return "hello submit_task";
 
   // let args:Vec<String> = std::env::args().collect();
   // if args[1] == "--combine"{
@@ -45,4 +46,10 @@ fn submit_task(param_str: &str) -> &str{
   // }
   
   // Manager::run();
+}
+#[tauri::command]
+fn combine(param_str: &str) -> &str{
+  let param: DownParam = serde_json::from_str(param_str).unwrap();
+  println!("combine deserialized = {:?}", param);
+  return "hello combine";
 }
