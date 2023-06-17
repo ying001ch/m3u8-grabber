@@ -36,7 +36,7 @@ FFMPEG_PATH="/ffmpeg/bin"
 - 在某些情况下 通过地址无法直接下载m3u8文件，可以手动抓取m3u8内容保存成文件再下载
 
 ```shell
-./m3u8-downloader http://m3u8.address --file ./m3u8_file_path
+./m3u8-downloader http://m3u8.address --file="./m3u8_file_path"
 ```
 
 > 由于m3u8内容里面往往只有视频路径最后一截，所以即使有了m3u8文件还是要指定 m3u8地址
@@ -45,7 +45,7 @@ FFMPEG_PATH="/ffmpeg/bin"
 
 ```shell
 // --output可省略 使用默认名称
-./m3u8-downloader --combine ./video_clip_dir --output=download_name.mp4
+./m3u8-downloader --combine="./video_clip_dir" --output=download_name.mp4
 ```
 
 > 会根据视频名称进行排序，只会添加 名称里包含 `.ts` 的文件
@@ -61,7 +61,7 @@ FFMPEG_PATH="/ffmpeg/bin"
 
 ```shell
 // 任意位置添加参数即可
---proxy=http://127.0.0.1:1081
+--proxy="http://127.0.0.1:1081"
 ```
 
 - 设置Http Header
@@ -82,6 +82,11 @@ FFMPEG_PATH="/ffmpeg/bin"
 
 ```shell
 --worker=4  // 手动指定线程数，默认为4
+```
+
+- 只下载片段，不合并
+```
+--noCombine //添加参数
 ```
 
 # 3. 下载失败

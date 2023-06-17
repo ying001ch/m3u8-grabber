@@ -7,8 +7,8 @@
     "withGlobalTauri": true
   },
   "package": {
-    "productName": "tauri-hello",
-    "version": "0.1.0"
+    "productName": "m3u8-tauri",
+    "version": "0.2.1"
   },
   "tauri": {
     "allowlist": {
@@ -55,10 +55,10 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
-        "resizable": true,
-        "title": "truri-hello",
-        "width": 800
+        "height": 700,
+        "resizable": false,
+        "title": "M3u8-downloader by Truri",
+        "width": 600
       }
     ]
   }

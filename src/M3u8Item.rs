@@ -3,10 +3,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
 use crate::str_util;
+use crate::config;
 use serde::{Serialize, Deserialize};
 
 //下载任务 参数
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug,Default)]
 pub struct DownParam {
     pub address: String,
     pub save_path: String,
@@ -19,6 +20,46 @@ pub struct DownParam {
     pub worker_num: usize,            //下载任务使用的线程数量
     pub task_type: usize,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
     pub no_combine: bool,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
+}
+impl DownParam {
+    pub fn from_cmd() -> Self{
+        let mut param = DownParam::default();
+        println!("===>param::default : {:?}", param);
+        //获取命令
+        let args: Vec<String> = env::args().collect();
+        //下载地址
+        param.address = args[1].clone();
+        //任务类型
+        param.task_type = config::TASK_DOWN;
+        args.iter().for_each(|s|{
+            if s.contains("--output="){ //保存路径
+                param.save_path = s.replace("--output=","");
+            }else if s.contains("--proxy="){ //http代理
+                param.proxy = Some(s.replace("--proxy=",""));
+            }else if s.contains("--H=") { //请求头
+                param.headers = Some(s.replace("--H=", ""));
+            }else if s.contains("--temp="){ //碎片文件存放目录
+                param.temp_path = Some(s.replace("--temp=",""));
+            }else if s.contains("--key="){ //解密Key
+                param.key_str = Some(s.replace("--key=",""));
+            }else if s.contains("--worker="){ //下载线程数
+                param.worker_num = s.replace("--worker=", "")
+                    .parse().unwrap_or(4);
+            }else if s.contains("--noCombine"){ //只下载不合并
+                param.no_combine = true;
+            }else if s.contains("--file="){
+                param.m3u8_file = Some(s.replace("--file=", ""));
+            }else if s.contains("--combine="){
+                param.combine_dir = Some(s.replace("--combine=", ""));
+                param.task_type = config::TASK_COM;
+            }
+        });
+        if param.worker_num <= 0 {
+            param.worker_num = 4;
+        }
+        println!("===>param : {:?}", param);
+        param
+    }
 }
 //M3u8文件参数
 #[derive(Debug)]

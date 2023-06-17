@@ -26,29 +26,22 @@ use std::time::Duration;
 pub fn run(param: DownParam) {
     println!("Hello this is M3u8-Downloader by rust");
 
-    // let args: Vec<String> = env::args().collect();
-    // let save_path = args[1].as_str();
-    // let m3u8_url = args[1].as_str();
-
-    // args
-    //     .iter()
-    //     .filter(|&e| e.contains("--proxy"))
-    //     .map(|e| e.replace("--proxy=", ""))
-    //     .next()
-    //     .map(|f|{
-    //         http_util::set_proxy(f);
-    //     });
     param.proxy.as_ref()
         .filter(|f|!f.is_empty())
         .map(|p|config::set_proxys(p.to_string()));
     param.headers.as_ref()
-        .filter(|f|!f.is_empty())
+        .filter(|&f|!f.is_empty())
         .map(|h|{
-        let v:Vec<String> = h.split(";")
-            .map(|f|f.to_string())
-            .collect();
-        http_util::set_header(&v[..]);
-    });
+            let v = h.split(";")
+                .map(|e|{
+                    let idx = str_util::index_of(':', e) as usize;
+                    let k = &e[0..idx];
+                    let v = &e[idx+1..e.len()];
+                    (k.trim().to_string(),v.trim().to_string())
+                })
+                .collect();
+            config::set_headers(v);
+        });
     //set workerNum
     config::set_work_num(param.worker_num);
     
@@ -211,15 +204,7 @@ fn get_thread_num()->u8{
     println!("worker num={}", num);
     num
 }
-// fn get_thread_num()->u8{
-//     let num = std::env::args().filter(|e|e.contains("--worker="))
-//         .map(|e|e.replace("--worker=",""))
-//         .map(|e|->u8 {e.parse().expect("")})
-//         .find(|e|true)
-//         .unwrap_or(4);
-//     println!("worker num={}", num);
-//     num
-// }
+
 fn make_name(num: i32) -> String {
     if num < 1000 {
         let s = format!("{}", num);

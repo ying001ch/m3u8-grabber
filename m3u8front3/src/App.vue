@@ -22,7 +22,6 @@
             </div>
           </el-main>
           <el-footer>
-            <el-button type="primary" @click="sayHello">sayHello</el-button>
             <el-button type="primary" @click="submitTask">开始下载</el-button>
             <el-button type="primary" @click="combine">合并片段</el-button>
           </el-footer>
@@ -57,11 +56,6 @@ export default {
     }
   },
   methods:  {
-    sayHello : function(event) {
-      msgBox('欢迎使用！')
-        invoke('greet', { name: 'World' })
-          .then((response) => console.log(response))
-    },
     submitTask: function (event) {
       if(!this.param.address || !this.param.save_path){
         msgBox('地址和保存路径必填')

@@ -6,17 +6,8 @@ use std::thread::Thread;
 use std::collections::HashMap;
 
 
-pub struct ReqParam{
-    proxys: String,
-    headers: Vec<(String,String)>,
-}
-static mut req_param :ReqParam = 
-    ReqParam{proxys: String::new(),
-     headers: vec![],
-    };
 pub fn main() {
     let args:Vec<String> = env::args().collect();
-    set_header(&args);
 
     query_bytes("http://localhost:8080/hs",0);
     println!("end..");
@@ -96,24 +87,6 @@ fn write_file(mut reader: Response) {
 }
 fn get_proxy()-> String {
     config::get_proxys()
-}
-pub fn set_proxy(proxy_s: String){
-    println!("proxy={}", &proxy_s);
-    unsafe {
-        // proxys = proxy_s;
-        req_param.proxys = proxy_s;
-    }
-}
-pub fn set_header(args: &[String]){
-    let headers:Vec<(String,String)> = args.iter()
-            .map(|e|{
-                let idx = str_util::index_of(':', &e) as usize;
-                let k = &e[0..idx];
-                let v = &e[idx+1..e.len()];
-                (k.trim().to_string(),v.trim().to_string())
-            }).collect();
-    println!("headers: {:?}",headers);
-    config::set_headers(headers);
 }
 fn get_headers() -> Vec<(String, String)>{
     config::get_headers()

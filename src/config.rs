@@ -11,6 +11,8 @@ static global_config: Mutex<GlobalConfig> = Mutex::new(GlobalConfig{
     proxys: None,
     headers: vec![],
 });
+pub const TASK_DOWN: usize = 1; //下载视频
+pub const TASK_COM: usize = 2;  //合并视频
 
 pub fn set_work_num(work_num: usize) {
     let a = global_config.lock();

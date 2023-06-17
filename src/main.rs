@@ -14,23 +14,31 @@ mod config;
 
 
 fn main() {
+  //判断是否使用命令行
+  if useCmd(){
+    let param:DownParam = DownParam::from_cmd();
+    dispatch(param,false);
+    return;
+  }
+  //启动图形界面
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![greet,submit_task, combine])
+    .invoke_handler(tauri::generate_handler![submit_task, combine])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-   format!("Hello, {}!", name)
+fn useCmd() -> bool {
+  let args:Vec<String> = std::env::args().collect();
+  args.len() > 1 && (args[1].starts_with("http") || args[1].contains("--combine"))
 }
+
 #[tauri::command]
 fn submit_task(param_str: &str) -> Result<&str,&str>{
   println!("raw str: {}",param_str);
   let param: DownParam = serde_json::from_str(param_str).unwrap();
   println!("deserialized = {:?}", param);
 
-  dispatch(param);
+  dispatch(param,true);
   return Ok("任务提交成功！");
 
   // let args:Vec<String> = std::env::args().collect();
@@ -48,19 +56,25 @@ fn submit_task(param_str: &str) -> Result<&str,&str>{
 fn combine(param_str: &str) -> &str{
   let param: DownParam = serde_json::from_str(param_str).unwrap();
   println!("combine deserialized = {:?}", param);
-  dispatch(param);
+  dispatch(param,true);
   return "合并任务提交成功！";
 }
-const TASK_DOWN: usize = 1; //下载视频
-const TASK_COM: usize = 2;  //合并视频
-fn dispatch(param: DownParam){
+fn dispatch(param: DownParam, async_task: bool){
   match param.task_type {
-    TASK_DOWN => {
-              thread::spawn(move||Manager::run(param));
+    config::TASK_DOWN => if async_task{
+                thread::spawn(move||Manager::run(param));
+              }else{
+                Manager::run(param);
               },
-    TASK_COM => {
-              thread::spawn(move||combine::combine_clip(param.combine_dir.unwrap().as_str(),
-                &param.save_path.as_str()));
+    config::TASK_COM => if async_task{
+              thread::spawn(move||combine::combine_clip(
+                  param.combine_dir.unwrap().as_str(),
+                  &param.save_path.as_str())
+                );
+              }else{
+                combine::combine_clip(
+                  param.combine_dir.unwrap().as_str(),
+                  &param.save_path.as_str())
               },
       _=> println!("任务类型不对"),
   }
