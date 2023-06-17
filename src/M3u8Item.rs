@@ -2,7 +2,26 @@ use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
+use crate::str_util;
+use serde::{Serialize, Deserialize};
 
+//下载任务 参数
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DownParam {
+    pub address: String,
+    pub save_path: String,
+    pub proxy: Option<String>,        //http代理地址
+    pub headers: Option<String>,      //请求头
+    pub combine_dir: Option<String>,  //合并视片段的路径
+    pub m3u8_file: Option<String>,    //m3u8文件路径
+    pub temp_path: Option<String>,    //片段的临时存放目录
+    pub key_str: Option<String>,      //m3u8片段的解密key
+    pub worker_num: usize,            //下载任务使用的线程数量
+    pub task_type: usize,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
+    pub no_combine: bool,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
+}
+//M3u8文件参数
+#[derive(Debug)]
 pub struct M3u8Entity{
     // content: String,
     pub method: String,
@@ -12,27 +31,42 @@ pub struct M3u8Entity{
     
     pub clip_urls: Vec<String>,
     pub url_prefix: Option<String>,
-    pub save_path: Option<String>,
+    pub save_path: String,
     pub temp_path: String
 }
 impl M3u8Entity {
-    pub fn from(content: String) -> M3u8Entity {
-        // let mut clip_urls = vec![];
+    pub fn default() -> Self{
         let method="".to_string();
         let key_url="".to_string();
         let key=[0;16];
         let iv=[0;16];
         let tt = timestamp1().to_string();
-        let mut entity = M3u8Entity{
+        return M3u8Entity{
             clip_urls: vec![],
             url_prefix: None,
             method,
             key_url,
             key,
             iv,
-            save_path:None,
+            save_path: "".to_string(),
             temp_path: tt
         };
+    }
+    pub fn from(param: &DownParam) -> M3u8Entity {
+        let content;
+        let m3u8_file = param.m3u8_file.as_ref();
+        if m3u8_file.is_some() && !m3u8_file.unwrap().is_empty(){
+            //1. 解析m3u8文件
+            content = std::fs::read_to_string(m3u8_file.unwrap()).unwrap();
+        } else {
+            //1. 解析m3u8文件
+            let m3u8_url = param.address.as_str();
+            content = http_util::query_text(m3u8_url);
+        }
+
+
+        // let mut clip_urls = vec![];
+        let mut entity = Self::default();
         let lines  = content.lines();
         for li in lines {
             if li.contains("EXT-X-KEY"){
@@ -50,9 +84,8 @@ impl M3u8Entity {
         }
         println!("clip num: {}", entity.clip_urls.len());
         // temp_path
-        let tpop = get_temp_path();
-        if let Some(t) = tpop{
-            entity.temp_path = t;
+        if let Some(t) = param.temp_path.as_ref().filter(|f|!f.is_empty()){
+            entity.temp_path = t.to_string();
         }
 
         if !dir_exists(&entity.temp_path) {
@@ -61,20 +94,35 @@ impl M3u8Entity {
         }
         println!("temp_path : {}", &entity.temp_path);
 
-        
+        entity.save_path = param.save_path.to_string();
+
+        //----------------------------------------------------------------
+        entity.process(param);
         entity
     }
-    pub fn req_key(&mut self) {
+    fn process(&mut self, param :&DownParam) {
+        let m3u8_url = param.address.as_str();
+        let mut idx1: i32 = str_util::index_of('?', m3u8_url);
+        if idx1 == -1 {
+            idx1 = m3u8_url.len() as i32;
+        }
+        let idx2 = str_util::last_index('/', &m3u8_url[0..idx1 as usize]);
+        if idx2 == -1 {
+            panic!("最后一个 / 找不到");
+        }
+        self.url_prefix = Some((&m3u8_url[0..idx2 as usize]).to_string() + "/");
+        println!("url_prefix = {}", self.url_prefix.as_ref().unwrap());
+    
+        self.req_key(param);
+    }
+    pub fn req_key(&mut self, param :&DownParam) {
         if !self.need_decode(){
             return;
         }
 
-        let pr = env::args()
-            .filter(|e| e.contains("--key"))
-            .map(|e| e.replace("--key=", ""))
-            .find(|e| true);
-        if pr.is_some() {
-            let bar = pr.unwrap().into_bytes();
+        let pr = param.key_str.as_ref();
+        if pr.filter(|f|!f.is_empty()).is_some() {
+            let bar = pr.unwrap().to_string().into_bytes();
             let mut k = [0u8;16];
             for i in 0..k.len(){
                 k[i] = bar[i];

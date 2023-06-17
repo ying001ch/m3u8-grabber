@@ -4,10 +4,16 @@ use crate::aes_demo;
 use crate::combine;
 use crate::http_util;
 use crate::M3u8Item;
+use crate::M3u8Item::DownParam;
 use crate::str_util;
+use crate::config;
 use core::panic;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::env;
 use std::io::Write;
+use std::ops::Deref;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
@@ -17,65 +23,52 @@ use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
-pub fn run() {
+pub fn run(param: DownParam) {
     println!("Hello this is M3u8-Downloader by rust");
 
-    let args: Vec<String> = env::args().collect();
+    // let args: Vec<String> = env::args().collect();
     // let save_path = args[1].as_str();
-    let m3u8_url = args[1].as_str();
+    // let m3u8_url = args[1].as_str();
 
-    args
-        .iter()
-        .filter(|&e| e.contains("--proxy"))
-        .map(|e| e.replace("--proxy=", ""))
-        .next()
-        .map(|f|{
-            http_util::set_proxy(f);
-        });
+    // args
+    //     .iter()
+    //     .filter(|&e| e.contains("--proxy"))
+    //     .map(|e| e.replace("--proxy=", ""))
+    //     .next()
+    //     .map(|f|{
+    //         http_util::set_proxy(f);
+    //     });
+    param.proxy.as_ref()
+        .filter(|f|!f.is_empty())
+        .map(|p|config::set_proxys(p.to_string()));
+    param.headers.as_ref()
+        .filter(|f|!f.is_empty())
+        .map(|h|{
+        let v:Vec<String> = h.split(";")
+            .map(|f|f.to_string())
+            .collect();
+        http_util::set_header(&v[..]);
+    });
+    //set workerNum
+    config::set_work_num(param.worker_num);
     
-    http_util::set_header(&args);
+    // http_util::set_header(&args);
 
-    let content;
-    if args.len() >= 4 && args[2] == "--file" {
-        //1. 解析m3u8文件
-        if args.len() < 5 {
-            panic!("--file 需要指定m3u8文件路径");
-        }
-        content = std::fs::read_to_string(&args[3]).unwrap();
-    } else {
-        //1. 解析m3u8文件
-        content = http_util::query_text(m3u8_url);
-    }
 
-    let mut entity = M3u8Item::M3u8Entity::from(content);
-    process(&mut entity, m3u8_url);
+    let entity = M3u8Item::M3u8Entity::from(&param);
 
-    let tp = entity.temp_path.clone();
+    let temp_path = entity.temp_path.clone();
+    let save_path = entity.save_path.clone();
     download_decode(entity);
 
-    println!("下载完毕！");
-
-    combine::combine_clip(&tp);
+    println!("下载完毕！no_combine:{}", param.no_combine);
+    if !param.no_combine {
+        combine::combine_clip(temp_path.as_str(), save_path.as_str());
+    }
 }
 
-fn process(entity: &mut M3u8Item::M3u8Entity, m3u8_url: &str) {
-
-    let mut idx1 = str_util::index_of('?', m3u8_url);
-    if idx1 == -1 {
-        idx1 = m3u8_url.len() as i32;
-    }
-    let idx2 = str_util::last_index('/', &m3u8_url[0..idx1 as usize]);
-    if idx2 == -1 {
-        panic!("最后一个 / 找不到");
-    }
-    entity.url_prefix = Some((&m3u8_url[0..idx2 as usize]).to_string() + "/");
-    println!("url_prefix = {}", entity.url_prefix.as_ref().unwrap());
-
-    entity.req_key();
-}
 fn download_decode(entity: M3u8Item::M3u8Entity) {
     // println!("savePath={}", entity.save_path.as_ref().unwrap());
-
     let entity_it = Arc::new(entity);
 
     let mut pkg = vec![];
@@ -132,7 +125,7 @@ fn download_decode(entity: M3u8Item::M3u8Entity) {
 
     // 下载线程
     let mut download_worker = vec![];
-    for i in 0..get_thread_num() {
+    for i in 0..config::get_work_num() {
         let clone_entity = Arc::clone(&entity_it);
         let clone_pkg = Arc::clone(&pkg);
         let txc = tx.clone();
@@ -218,6 +211,15 @@ fn get_thread_num()->u8{
     println!("worker num={}", num);
     num
 }
+// fn get_thread_num()->u8{
+//     let num = std::env::args().filter(|e|e.contains("--worker="))
+//         .map(|e|e.replace("--worker=",""))
+//         .map(|e|->u8 {e.parse().expect("")})
+//         .find(|e|true)
+//         .unwrap_or(4);
+//     println!("worker num={}", num);
+//     num
+// }
 fn make_name(num: i32) -> String {
     if num < 1000 {
         let s = format!("{}", num);

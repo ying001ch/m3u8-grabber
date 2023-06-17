@@ -1,7 +1,7 @@
 use reqwest::{blocking::{Client, Response}};
 use std::{env, io::{Read, Write}};
 use bytes::Bytes;
-use crate::str_util;
+use crate::{str_util, config};
 use std::thread::Thread;
 use std::collections::HashMap;
 
@@ -60,8 +60,9 @@ fn get_client(idx: i32)-> Client{
     // }
 
     let mut builder = reqwest::blocking::Client::builder();
-    if get_proxy().len()>0 {
-        let proxy = reqwest::Proxy::all(get_proxy())
+    let p = get_proxy();
+    if p.len()>0 {
+        let proxy = reqwest::Proxy::all(p.as_str())
                 .expect("socks proxy should be there");
         builder = builder.proxy(proxy);
     }
@@ -93,10 +94,8 @@ fn write_file(mut reader: Response) {
         }
     }
 }
-fn get_proxy()->&'static str{
-    unsafe {
-        &req_param.proxys
-    }
+fn get_proxy()-> String {
+    config::get_proxys()
 }
 pub fn set_proxy(proxy_s: String){
     println!("proxy={}", &proxy_s);
@@ -107,8 +106,6 @@ pub fn set_proxy(proxy_s: String){
 }
 pub fn set_header(args: &[String]){
     let headers:Vec<(String,String)> = args.iter()
-            .filter(|&e|e.starts_with("--H=")&&e.contains(":"))
-            .map(|e|e.replace("--H=",""))
             .map(|e|{
                 let idx = str_util::index_of(':', &e) as usize;
                 let k = &e[0..idx];
@@ -116,12 +113,8 @@ pub fn set_header(args: &[String]){
                 (k.trim().to_string(),v.trim().to_string())
             }).collect();
     println!("headers: {:?}",headers);
-    unsafe {
-        req_param.headers=headers;        
-    }
+    config::set_headers(headers);
 }
-fn get_headers() -> &'static Vec<(String, String)>{
-    unsafe {
-        &req_param.headers      
-    }
+fn get_headers() -> Vec<(String, String)>{
+    config::get_headers()
 }

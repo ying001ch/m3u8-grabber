@@ -1,6 +1,8 @@
-use std::{env, io::Write, process::Command};
+use std::{env, io::Write, process::Command, string};
 
-pub fn combine_clip(clip_dir: &str) {
+pub fn combine_clip(clip_dir: &str, save_path: &str) {
+    let save_path = get_output_name(save_path);
+    println!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path);
     // 1. 检测环境变量
     let ffmpeg_dir = std::env::var("FFMPEG_PATH")
     .expect("没有配置 FFMPEG_PATH 环境变量");
@@ -35,7 +37,7 @@ pub fn combine_clip(clip_dir: &str) {
     println!("com_file_name: {}", &com_file_name);
    
 
-    let output_name = get_output_name();
+    let output_name = save_path;
     // 3.调用合并
     let output = 
         Command::new(ffmpeg)
@@ -53,9 +55,9 @@ pub fn combine_clip(clip_dir: &str) {
     println!("删除临时文件完成！");
 }
 
-fn get_output_name() ->String {
-     env::args().filter(|e|e.contains("--output="))
-            .map(|e|e.replace("--output=", ""))
-            .find(|_e|true).unwrap_or("output.mp4".to_string())
-
+fn get_output_name(save_path: &str) -> String {
+    if(save_path.is_empty() || save_path.ends_with("/") || save_path.ends_with("\\")){
+        return format!("{}output.mp4", save_path);
+    }
+    save_path.to_string()
 }
