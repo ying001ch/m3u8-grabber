@@ -1,4 +1,7 @@
+use std::collections::hash_map::DefaultHasher;
 use std::env;
+use std::fmt::format;
+use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
@@ -81,7 +84,7 @@ impl M3u8Entity {
         let key_url="".to_string();
         let key=[0;16];
         let iv=[0;16];
-        let tt = timestamp1().to_string();
+        let tt = "".to_string();
         return M3u8Entity{
             clip_urls: vec![],
             url_prefix: None,
@@ -108,6 +111,7 @@ impl M3u8Entity {
 
         // let mut clip_urls = vec![];
         let mut entity = Self::default();
+        entity.temp_path = cal_hash(&param.address);
         let lines  = content.lines();
         for li in lines {
             if li.contains("EXT-X-KEY"){
@@ -141,6 +145,9 @@ impl M3u8Entity {
         entity.process(param);
         entity
     }
+    /**
+     * 处理urlPrefix 和 获取解密key
+     */
     fn process(&mut self, param :&DownParam) {
         let m3u8_url = param.address.as_str();
         let mut idx1: i32 = str_util::index_of('?', m3u8_url);
@@ -279,4 +286,11 @@ fn parse_hex_char(ac: char) -> u8 {
     }else {
         nu - ('a' as u8) + 10
     }
+}
+fn cal_hash(input : &str) -> String{
+    let mut hasher = DefaultHasher::new();
+    input.hash(&mut hasher);
+    let output = hasher.finish();
+    println!("auto temp clip dir ={}", output); // 输出字符串的哈希值
+    format!("{}",output)
 }

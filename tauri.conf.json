@@ -56,9 +56,9 @@
       {
         "fullscreen": false,
         "height": 700,
-        "resizable": false,
+        "resizable": true,
         "title": "M3u8-downloader by Truri",
-        "width": 600
+        "width": 700
       }
     ]
   }

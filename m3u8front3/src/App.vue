@@ -8,16 +8,80 @@
           <el-header><span class="header">M3u8下载器</span></el-header>
           <el-main>
             <div class="grid-content ep-bg-purple">
-              M3u8地址<el-input placeholder="请输入M3u8地址 http://*.*/*.m3u8" v-model="param.address"  clearable />
-              保存路径<el-input placeholder="请输入下载路径" v-model="param.save_path" clearable></el-input>
-              Http代理<el-input placeholder="请输入http代理" v-model="param.proxy" clearable></el-input>
-              请求头<el-input placeholder="请输入http header,多条使用分号隔开" v-model="param.headers" clearable></el-input>
-              
-              片段目录<el-input placeholder="输入视频片段目录" v-model="param.combine_dir" clearable></el-input>
-              M3u8文件目录<el-input placeholder="本地m3u8文件路径" v-model="param.m3u8_file" clearable></el-input>
-              临时目录<el-input placeholder="下载临时目录，为空时使用时间戳生成，下载完删除" v-model="param.temp_path" clearable></el-input>
-              解密Key<el-input placeholder="请输入解密Key" v-model="param.key_str" clearable></el-input>
-              线程数量<el-input placeholder="下载线程数" v-model.number="param.worker_num" type="number" clearable></el-input>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> M3u8地址</span>
+                </el-col>
+                <el-col :span="19" class="labal-col">
+                  <el-input placeholder="请输入M3u8地址 http://*.*/*.m3u8" v-model="param.address"  clearable />
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> 保存路径</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="请输入下载路径" v-model="param.save_path" clearable></el-input>
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> 临时目录</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="视频片段的临时存放目录，为空时使用时间戳生成" v-model="param.temp_path" clearable></el-input>
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> 请求头</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="请输入http header,多条使用分号隔开" v-model="param.headers" clearable></el-input>
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> M3u8文件目录</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="本地m3u8文件路径" v-model="param.m3u8_file" clearable/>
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> 解密Key</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="请输入解密Key" v-model="param.key_str" clearable></el-input>
+                </el-col>
+              </el-row>
+              <!-- 全局设置 -->
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> Http代理</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="请输入http代理" v-model="param.proxy" clearable></el-input>
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> 线程数量</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="下载线程数" v-model.number="param.worker_num" type="number" clearable></el-input>
+                </el-col>
+              </el-row>
+              <el-row :gutter="3">
+                <el-col :span="5" class="labal-col">
+                  <span class=""> 片段目录</span>
+                </el-col>
+                <el-col :span="19">
+                  <el-input placeholder="输入要合并的视频片段目录" v-model="param.combine_dir" clearable></el-input>
+                </el-col>
+              </el-row>
+              <!-- 合并设置 -->
               只下载不合并<el-switch v-model="param.no_combine" />
             </div>
             <!-- 进度条 -->
@@ -58,7 +122,7 @@ export default {
         m3u8_file: null,
         temp_path: null,
         key_str: null,
-        worker_num: 2,
+        worker_num: 4,
         task_type: 1,
         no_combine: false,
       }
@@ -129,6 +193,11 @@ function msgBox(msg){
 </script>
 
 <style>
+.labal-col{
+  text-align: right;
+  padding-right: 10px;
+  padding-top: 5px;
+}
 .header {
   font-size: 20px;
   display: inline-block; /* 将 span 元素转换为块级元素 */
