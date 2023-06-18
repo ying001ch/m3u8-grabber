@@ -1,11 +1,11 @@
 <template>
-    <el-row :gutter="20">
-      <el-col :span="6">
+    <el-row :gutter="5">
+      <el-col :span="4">
         <div class="grid-content ep-bg-purple"> &nbsp;</div>
       </el-col>
-      <el-col :span="12">
+      <el-col :span="16">
         <el-container>
-          <el-header>M3u8下载器</el-header>
+          <el-header><span class="header">M3u8下载器</span></el-header>
           <el-main>
             <div class="grid-content ep-bg-purple">
               M3u8地址<el-input placeholder="请输入M3u8地址 http://*.*/*.m3u8" v-model="param.address"  clearable />
@@ -20,14 +20,21 @@
               线程数量<el-input placeholder="下载线程数" v-model.number="param.worker_num" type="number" clearable></el-input>
               只下载不合并<el-switch v-model="param.no_combine" />
             </div>
+            <!-- 进度条 -->
+            <el-progress :text-inside="true" :stroke-width="30" :percentage="percentage" :status="progress_status">
+              <span>title mp4  {{percentage}}%</span>
+            </el-progress>
+            <el-progress type="circle" :percentage="percentage" :status="progress_status"/>
           </el-main>
           <el-footer>
             <el-button type="primary" @click="submitTask">开始下载</el-button>
             <el-button type="primary" @click="combine">合并片段</el-button>
+            <el-button type="primary" @click="increase">++</el-button>
+            <el-button type="primary" @click="decrease">--</el-button>
           </el-footer>
         </el-container>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <div class="grid-content ep-bg-purple"></div>
       </el-col>
     </el-row>
@@ -40,6 +47,8 @@ export default {
   name: 'App',
   data () {
     return {
+      percentage: 30,
+      progress_status: '',
       param: {
         address: '',
         save_path: './',
@@ -56,6 +65,29 @@ export default {
     }
   },
   methods:  {
+    submitUpload: function (evn){
+      console.log('文件提交 evn:' + evn)
+    },
+    handleExceed: function(files){
+      console.log('获取文件 files: ' + files);
+      files.forEach(f=>console.log('f='+ f))
+    },
+    decrease: function (){
+      this.percentage -= 10
+      if(this.percentage <= 0){
+        this.percentage = 0
+      }
+      if(this.percentage < 100){
+        this.progress_status = ''
+      }
+    },
+    increase: function(){
+      this.percentage += 10
+      if(this.percentage >=100){
+        this.percentage = 100
+        this.progress_status = 'success'
+      }
+    },
     submitTask: function (event) {
       if(!this.param.address || !this.param.save_path){
         msgBox('地址和保存路径必填')
@@ -97,6 +129,15 @@ function msgBox(msg){
 </script>
 
 <style>
+.header {
+  font-size: 20px;
+  display: inline-block; /* 将 span 元素转换为块级元素 */
+  text-align: center; /* 实现水平居中 */
+  line-height: 60px;/* 等于父元素高度 */
+  vertical-align: middle; /* 实现垂直居中 */
+  width: -webkit-fill-available; /* 自动填充宽度 */
+  padding-top: 10px;
+}
 .el-row {
   margin-bottom: 20px;
 }
