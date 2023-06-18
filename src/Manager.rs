@@ -1,4 +1,9 @@
 use bytes::Bytes;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
+use tokio::runtime::Builder;
+use tokio::sync::Semaphore;
+use tokio::task::JoinHandle;
 
 use crate::aes_demo;
 use crate::combine;
@@ -10,7 +15,9 @@ use crate::config;
 use core::panic;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
+use std::clone;
 use std::env;
+use std::io::Error;
 use std::io::Write;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -22,6 +29,7 @@ use std::sync::mpsc::Sender;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
+use std::time::SystemTime;
 
 pub fn run(param: DownParam) {
     println!("Hello this is M3u8-Downloader by rust");
@@ -52,14 +60,105 @@ pub fn run(param: DownParam) {
 
     let temp_path = entity.temp_path.clone();
     let save_path = entity.save_path.clone();
-    download_decode(entity);
+    let st = SystemTime::now();
+    // download_decode(entity);
+    //手动创建了运行时，就可以不再使用main方法上的注解
+    tokio::runtime::Runtime::new().unwrap()
+            .block_on(download_async(entity));
+    let spend_time = st.elapsed().unwrap().as_secs();
 
-    println!("下载完毕！no_combine:{}", param.no_combine);
+
+    println!("下载完毕！总耗时：{}s no_combine:{}", spend_time, param.no_combine);
     if !param.no_combine {
         combine::combine_clip(temp_path.as_str(), save_path.as_str());
     }
 }
+async fn download_async(entity: M3u8Item::M3u8Entity){
+    let clip_urls =  entity.clip_urls.clone();
+    let temp_path = entity.temp_path.clone();
+    let nd = entity.need_decode();
+    let key = entity.key;
+    let iv = entity.iv;
+    let prefix = entity.url_prefix.as_ref().unwrap().clone();
+    let mut join_v = vec![];
+    let semaphore = Arc::new(Semaphore::new(config::get_work_num()));
+    for idx in 0..clip_urls.len() {
+        let clip_clone = clip_urls[idx].clone();
+        // let clip_clone = clip.clone();
+        let prefix_clone = prefix.to_string();
+        let temp_path_clone = temp_path.clone();
+        let sem = semaphore.clone();
+        let handler = tokio::spawn(async move{
+            let permit = sem.acquire().await.unwrap();
+            
+            let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
+            if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
+                println!("片段[{}]存在,不再下载", down_file_path);
+                drop(permit);
+                return;
+            }
 
+            let down_url = prefix_clone.to_string() + clip_clone.as_str();
+            // println!("--> {}", down_url);
+
+            let bytes = http_util::query_bytes_async(&down_url,0 as i32).await;
+            if bytes.is_err() {
+                // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
+                println!("下载片段({})出错：{}", idx, bytes.unwrap_err());
+                drop(permit);
+                return;
+            }
+            println!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
+            //写入文件
+            let temp;
+            let result: &[u8] = if nd {
+                let res = aes_demo::decrypt(bytes.as_ref().unwrap(), &key, &iv);
+                if let Ok(v) = res{
+                    temp = v;
+                    &temp
+                }else{
+                    println!("片段({}) Decode ERROR 解密过程出错：{}", idx, res.unwrap_err());
+                    drop(permit);
+                    return;
+                }
+            } else {
+                bytes.as_ref().unwrap()
+            };
+            let res = write_file_async(result, down_file_path)
+                    .await;
+            if let Err(e) = res{
+                println!("写入片段[{}]失败， err={}", idx + 1, e);
+            }else{
+                println!("写入片段[{}]成功！", idx + 1);
+            }
+            drop(permit);
+        });
+        join_v.push(handler);
+        //限制并发量的一种方法，分组执行，有一定效果
+        //但是必须等到一组都执行完毕才能往下走，效率有些波动
+        //后续可以再优化一下
+        // if join_v.len() >= 1000 {
+        //     let join_v_2 = join_v;
+        //     join_v = vec![];
+        //     exec_group(join_v_2).await;
+        // }
+    }
+    println!("join_v len = {}", join_v.len());
+    let mut idx = 1;
+    for j in join_v{
+        println!("===> handler={} 开始执行",idx);
+        j.await.unwrap();
+        println!("===> handler={} 执行结束", idx);
+        idx += 1;
+    }
+}
+async fn exec_group(join_v: Vec<JoinHandle<()>>){
+    for j in join_v.into_iter() {
+        println!("===> handler= 开始执行");
+        j.await;
+        println!("===> handler= 执行结束");
+    }
+}
 fn download_decode(entity: M3u8Item::M3u8Entity) {
     // println!("savePath={}", entity.save_path.as_ref().unwrap());
     let entity_it = Arc::new(entity);
@@ -215,6 +314,18 @@ fn make_name(num: i32) -> String {
     format!("{}", num)
 }
 
+async fn write_file_async(result: &[u8], f_name: String) -> Result<(), Error> {
+    let mut f = File::create(f_name.clone()).await.unwrap();
+
+    let n = f.write(result).await.unwrap();
+    if let Err(e) = f.flush().await{
+        return Err(e);
+    }
+    println!("write {} bytes", n);
+
+    println!("写入成功 counter:{}, size: {}", f_name, n);
+    Ok(())
+}
 fn write_file(result: &[u8], entity: &M3u8Item::M3u8Entity, file_name: String) {
     let save_path = entity.temp_path.clone();
 

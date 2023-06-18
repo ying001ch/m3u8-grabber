@@ -122,7 +122,7 @@ export default {
         m3u8_file: null,
         temp_path: null,
         key_str: null,
-        worker_num: 4,
+        worker_num: 80,
         task_type: 1,
         no_combine: false,
       }

@@ -1,6 +1,6 @@
-use reqwest::{blocking::{Client, Response}};
-use std::{env, io::{Read, Write}};
 use bytes::Bytes;
+use reqwest::{blocking::{Client, Response}};
+use std::{env, io::{Read, Write}, time::Duration};
 use crate::{str_util, config};
 use std::thread::Thread;
 use std::collections::HashMap;
@@ -11,6 +11,21 @@ pub fn main() {
 
     query_bytes("http://localhost:8080/hs",0);
     println!("end..");
+}
+pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, reqwest::Error> {
+    let client = get_client2(0);
+    let mut req_builder = client.get(url);
+    let head = get_headers();
+    for h in head {
+        req_builder = req_builder.header(&h.0, &h.1);
+    }
+    let body = client.execute(req_builder.build().unwrap()).await;
+    match body {
+        Ok(res) => res.bytes().await.map(|b|Box::new(b)),
+        Err(err) => {
+            Err(err)
+        }
+    }
 }
 pub fn query_bytes(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, reqwest::Error> {
     let client = get_client(idx);
@@ -36,6 +51,20 @@ pub fn query_text(url: &str) ->String {
             panic!("query text failed!");
         }
     }
+}
+fn get_client2(idx: i32)-> reqwest::Client{
+    let mut builder = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60));
+
+    // let mut builder = reqwest::blocking::Client::builder();
+    let p = get_proxy();
+    if p.len()>0 {
+        let proxy = reqwest::Proxy::all(p.as_str())
+                .expect("socks proxy should be there");
+        builder = builder.proxy(proxy);
+    }
+    let cli = builder.build().expect("build clent failed.");
+    cli
 }
 fn get_client(idx: i32)-> Client{
     // static mut map:Option<HashMap<i32, Client>> = None;

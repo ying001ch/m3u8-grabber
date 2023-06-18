@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use core::panic;
-use std::{thread, ops::{DerefMut, Deref}, borrow::Borrow};
+use std::{thread, ops::{DerefMut, Deref}, borrow::Borrow, future, time::Duration};
 use M3u8Item::{DownParam, M3u8Entity};
 
 mod Manager;
@@ -12,7 +12,7 @@ mod combine;
 mod str_util;
 mod config;
 
-
+// #[tokio::main]
 fn main() {
   //判断是否使用命令行
   if useCmd(){

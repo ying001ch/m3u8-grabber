@@ -20,7 +20,7 @@ pub struct DownParam {
     pub m3u8_file: Option<String>,    //m3u8文件路径
     pub temp_path: Option<String>,    //片段的临时存放目录
     pub key_str: Option<String>,      //m3u8片段的解密key
-    pub worker_num: usize,            //下载任务使用的线程数量
+    pub worker_num: usize,            //下载使用的并行任务数量 async方式
     pub task_type: usize,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
     pub no_combine: bool,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
 }
@@ -47,7 +47,7 @@ impl DownParam {
                 param.key_str = Some(s.replace("--key=",""));
             }else if s.contains("--worker="){ //下载线程数
                 param.worker_num = s.replace("--worker=", "")
-                    .parse().unwrap_or(4);
+                    .parse().unwrap_or(80);
             }else if s.contains("--noCombine"){ //只下载不合并
                 param.no_combine = true;
             }else if s.contains("--file="){
