@@ -85,16 +85,15 @@
               只下载不合并<el-switch v-model="param.no_combine" />
             </div>
             <!-- 进度条 -->
-            <el-progress :text-inside="true" :stroke-width="30" :percentage="percentage" :status="progress_status">
+            <!-- <el-progress :text-inside="true" :stroke-width="30" :percentage="percentage" :status="progress_status">
               <span>title mp4  {{percentage}}%</span>
             </el-progress>
-            <el-progress type="circle" :percentage="percentage" :status="progress_status"/>
+            <el-progress type="circle" :percentage="percentage" :status="progress_status"/> -->
           </el-main>
           <el-footer>
             <el-button type="primary" @click="submitTask">开始下载</el-button>
             <el-button type="primary" @click="combine">合并片段</el-button>
-            <el-button type="primary" @click="increase">++</el-button>
-            <el-button type="primary" @click="decrease">--</el-button>
+            <el-button type="primary" @click="pause">暂停下载</el-button>
           </el-footer>
         </el-container>
       </el-col>
@@ -129,6 +128,13 @@ export default {
     }
   },
   methods:  {
+    pause: function(){
+      console.log('暂停下载')
+      invoke('pause', {})
+        .then((response) => {
+          msgBox(response)
+        })
+    },
     submitUpload: function (evn){
       console.log('文件提交 evn:' + evn)
     },

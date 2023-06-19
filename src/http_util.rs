@@ -12,7 +12,7 @@ pub fn main() {
     query_bytes("http://localhost:8080/hs",0);
     println!("end..");
 }
-pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, reqwest::Error> {
+pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, String> {
     let client = get_client2(0);
     let mut req_builder = client.get(url);
     let head = get_headers();
@@ -21,9 +21,17 @@ pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Box<Byt
     }
     let body = client.execute(req_builder.build().unwrap()).await;
     match body {
-        Ok(res) => res.bytes().await.map(|b|Box::new(b)),
+        Ok(res) => {
+            if !res.status().is_success() {
+                return Err(format!("=====> 请求异常，status: {}", res.status()));
+            }
+            match res.bytes().await {
+                Ok(b)=>Ok(Box::new(b)),
+                Err(e)=> Err(e.to_string()),
+            }
+        },
         Err(err) => {
-            Err(err)
+            Err(err.to_string())
         }
     }
 }
@@ -67,17 +75,6 @@ fn get_client2(idx: i32)-> reqwest::Client{
     cli
 }
 fn get_client(idx: i32)-> Client{
-    // static mut map:Option<HashMap<i32, Client>> = None;
-    // let mut m;
-    // unsafe{
-    //     if let None = map{
-    //         map = Some(HashMap::new());
-    //     }
-    //     m = map.as_mut().unwrap();
-    //     // if m.contains_key(&idx) {
-    //     //     return m.get(&idx).as_ref().unwrap();
-    //     // }
-    // }
 
     let mut builder = reqwest::blocking::Client::builder();
     let p = get_proxy();
@@ -88,11 +85,6 @@ fn get_client(idx: i32)-> Client{
     }
     let cli = builder.build().expect("build clent failed.");
     cli
-    // unsafe {
-    //     m.insert(idx, cli);
-    //     println!("new http client for thread: {}", idx);
-    //     m.get(&idx).as_ref().unwrap()
-    // }
 }
 
 fn write_file(mut reader: Response) {

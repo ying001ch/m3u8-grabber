@@ -7,12 +7,14 @@ use tokio::task::JoinHandle;
 
 use crate::aes_demo;
 use crate::combine;
+use crate::config::Signal;
 use crate::http_util;
 use crate::M3u8Item;
 use crate::M3u8Item::DownParam;
 use crate::str_util;
 use crate::config;
 use core::panic;
+use std::borrow::Borrow;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::clone;
@@ -67,6 +69,11 @@ pub fn run(param: DownParam) {
             .block_on(download_async(entity));
     let spend_time = st.elapsed().unwrap().as_secs();
 
+    if let Signal::Pause = config::get_signal(){
+        println!("--->下载暂停");
+        return;
+    }
+
 
     println!("下载完毕！总耗时：{}s no_combine:{}", spend_time, param.no_combine);
     if !param.no_combine {
@@ -82,18 +89,26 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
     let prefix = entity.url_prefix.as_ref().unwrap().clone();
     let mut join_v = vec![];
     let semaphore = Arc::new(Semaphore::new(config::get_work_num()));
+    let err_vec: Vec<usize> = vec![];
+    let err_clips = Arc::new(Mutex::new(err_vec));
     for idx in 0..clip_urls.len() {
         let clip_clone = clip_urls[idx].clone();
         // let clip_clone = clip.clone();
         let prefix_clone = prefix.to_string();
         let temp_path_clone = temp_path.clone();
         let sem = semaphore.clone();
+        let err_clone = Arc::clone(&err_clips);
         let handler = tokio::spawn(async move{
+            if let Signal::Pause = config::get_signal(){
+                return;
+            }
             let permit = sem.acquire().await.unwrap();
-            
+            //判断是否停止
+            if let Signal::Pause = config::get_signal(){
+                return;
+            }
             let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
-                println!("片段[{}]存在,不再下载", down_file_path);
                 drop(permit);
                 return;
             }
@@ -101,12 +116,22 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             let down_url = prefix_clone.to_string() + clip_clone.as_str();
             // println!("--> {}", down_url);
 
-            let bytes = http_util::query_bytes_async(&down_url,0 as i32).await;
-            if bytes.is_err() {
-                // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
-                println!("下载片段({})出错：{}", idx, bytes.unwrap_err());
-                drop(permit);
+            let mut bytes = http_util::query_bytes_async(&down_url,0 as i32).await;
+            if let Signal::Pause = config::get_signal(){
+                println!("收到停止信号，不再下载");
                 return;
+            }
+            let mut err_num = 1;
+            while let Err(err) = bytes {
+                println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
+                if err_num >=5 {
+                    err_clone.lock().unwrap().push(idx);
+                    drop(permit);
+                    return;
+                }
+                // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
+                bytes = http_util::query_bytes_async(&down_url, 0 as i32).await;
+                err_num += 1;
             }
             println!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
             //写入文件
@@ -146,10 +171,14 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
     println!("join_v len = {}", join_v.len());
     let mut idx = 1;
     for j in join_v{
-        println!("===> handler={} 开始执行",idx);
+        // println!("===> handler={} 开始执行",idx);
         j.await.unwrap();
-        println!("===> handler={} 执行结束", idx);
+        // println!("===> handler={} 执行结束", idx);
         idx += 1;
+    }
+    
+    if err_clips.lock().unwrap().len() > 0{
+        println!("以下片段出错没有下载完成: {:?}", err_clips.lock().unwrap());
     }
 }
 async fn exec_group(join_v: Vec<JoinHandle<()>>){
@@ -159,127 +188,6 @@ async fn exec_group(join_v: Vec<JoinHandle<()>>){
         println!("===> handler= 执行结束");
     }
 }
-fn download_decode(entity: M3u8Item::M3u8Entity) {
-    // println!("savePath={}", entity.save_path.as_ref().unwrap());
-    let entity_it = Arc::new(entity);
-
-    let mut pkg = vec![];
-    let len = entity_it.clip_urls.len();
-    for i in 0..len {
-        pkg.push(((len - i) as i32, entity_it.clip_urls[len-1-i].clone(),0));
-    }
-    let pkg = Arc::new(Mutex::new(pkg));
-
-    let (tx, rx) = mpsc::channel::<(Box<Bytes>,i32)>();
-    
-    let mut write_worker = vec![];
-    // 创建解密和 写文件线程
-    let rx_holder = Arc::new(Mutex::new(rx));
-    for i in 0..2 {
-        let holder = Arc::clone(&rx_holder);
-        let clone_entity = Arc::clone(&entity_it);
-        let handler = thread::spawn(move||{
-            let dd = clone_entity.as_ref();
-            let key = &dd.key;
-            let iv = &dd.iv;
-            
-            loop{
-                let (byte_vec, clip_index) =  {
-                    holder.lock().unwrap().recv().unwrap()
-                };
-                if clip_index<0 {
-                    println!("退出线程====");
-                    break;
-                }
-
-                println!("vec size = {}", byte_vec.len());
-
-                let temp;
-                let result: &[u8] = if dd.need_decode() {
-                    let res = aes_demo::decrypt(&byte_vec, key, iv);
-                    if let Ok(v) = res{
-                        temp = v;
-                        &temp
-                    }else{
-                        println!("Decode ERROR 解密过程出错：{}", res.unwrap_err());
-                        continue;
-                    }
-                } else {
-                    byte_vec.as_ref()
-                };
-
-                write_file(result, &dd, make_name(clip_index));
-                println!("{}--写入成功！clip_index={}\n",i, clip_index);
-            }
-        });
-        write_worker.push(handler);
-    }
-
-    // 下载线程
-    let mut download_worker = vec![];
-    for i in 0..config::get_work_num() {
-        let clone_entity = Arc::clone(&entity_it);
-        let clone_pkg = Arc::clone(&pkg);
-        let txc = tx.clone();
-        let handler = thread::spawn(move || {
-            sleep(Duration::from_millis(i as u64 *300u64));
-            let dd = clone_entity.as_ref();
-            let prefix = dd.url_prefix.as_ref().unwrap();
-            loop {
-
-                let clip;
-                let clip_index;
-                let mut retry_num ;
-                {
-                    let mut pkd_ref = clone_pkg.lock().unwrap();
-                    let (clip_index_, clip_, retry_num_) = match pkd_ref.pop(){
-                        Some(e)=>e,
-                        None=>break
-                    };
-                    clip = clip_;
-                    clip_index = clip_index_;
-                    retry_num = retry_num_;
-                    if retry_num > 0{
-                        println!("错误片段重新下载。retry_num={}", retry_num);
-                    }
-                }
-                if file_exists(format!(
-                    "{}/{}.ts",
-                    dd.temp_path,
-                    make_name(clip_index)
-                ).as_ref()) {
-                    continue;
-                }
-
-                let down_url = prefix.to_string() + clip.as_str();
-                println!("--> {}", down_url);
-
-                let result = http_util::query_bytes(&down_url,i as i32);
-                if result.is_err() {
-                    put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
-                    println!("下载出错：{}", result.unwrap_err());
-                    continue;
-                }
-                txc.send((result.unwrap(), clip_index)).unwrap();
-                
-                println!("{}--下载成功！clip_index={}\n",i, clip_index)
-            }
-        });
-        download_worker.push(handler);
-    }
-    for ha in download_worker {
-        ha.join().expect("线程被中断");
-    }
-
-    for _ha in 0..write_worker.len() {
-        tx.send((Box::new(Bytes::new()), -1)).unwrap();
-    }
-    for ha in write_worker {
-        ha.join().expect("线程被中断");
-    }
-    
-}
-
 fn file_exists(file_path: &str)-> bool{
     let file_ex = std::fs::File::open(file_path);
     file_ex.is_ok()

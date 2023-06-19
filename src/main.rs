@@ -3,6 +3,7 @@
 use core::panic;
 use std::{thread, ops::{DerefMut, Deref}, borrow::Borrow, future, time::Duration};
 use M3u8Item::{DownParam, M3u8Entity};
+use config::Signal;
 
 mod Manager;
 mod http_util;
@@ -22,7 +23,7 @@ fn main() {
   }
   //启动图形界面
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![submit_task, combine])
+    .invoke_handler(tauri::generate_handler![submit_task, combine,pause])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
@@ -58,6 +59,11 @@ fn combine(param_str: &str) -> &str{
   println!("combine deserialized = {:?}", param);
   dispatch(param,true);
   return "合并任务提交成功！";
+}
+#[tauri::command]
+fn pause() -> &'static str{
+  config::set_signal(Signal::Pause);
+  return "暂停信号已发出";
 }
 fn dispatch(param: DownParam, async_task: bool){
   match param.task_type {

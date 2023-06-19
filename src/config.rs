@@ -1,16 +1,27 @@
-use std::{sync::Mutex, cell::RefCell};
+use std::{sync::{Mutex, MutexGuard}, cell::RefCell};
 
-struct GlobalConfig{
+use tokio::runtime::Runtime;
+
+#[derive(Debug, Clone)]
+pub enum Signal {
+    Normal,
+    Pause
+}
+
+pub struct GlobalConfig{
     work_num: usize,
     proxys: Option<String>,
     headers: Vec<(String,String)>,
+    signal: Signal,
 }
 //TODO 全局配置存储
 static global_config: Mutex<GlobalConfig> = Mutex::new(GlobalConfig{
     work_num: 2,
     proxys: None,
     headers: vec![],
+    signal: Signal::Normal,
 });
+// static rt: Mutex<Option<Runtime>> = Mutex::new(None);
 pub const TASK_DOWN: usize = 1; //下载视频
 pub const TASK_COM: usize = 2;  //合并视频
 
@@ -43,4 +54,12 @@ pub fn set_headers(v: Vec<(String,String)>) {
 }
 pub fn get_headers() -> Vec<(String,String)> {
      global_config.lock().unwrap().headers.clone()
+}
+//-----sinal-----
+pub fn set_signal(ss: Signal) {
+    let mut a = global_config.lock().unwrap();
+    a.signal = ss;
+}
+pub fn get_signal() -> Signal {
+    global_config.lock().unwrap().signal.clone()
 }
