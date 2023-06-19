@@ -56,6 +56,7 @@ pub fn run(param: DownParam) {
     config::set_work_num(param.worker_num);
     
     // http_util::set_header(&args);
+    config::set_signal(Signal::Normal);
 
 
     let entity = M3u8Item::M3u8Entity::from(&param);
