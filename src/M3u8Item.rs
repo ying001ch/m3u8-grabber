@@ -116,7 +116,7 @@ impl M3u8Entity {
         for li in lines {
             if li.contains("EXT-X-KEY"){
                 // key method iv
-                parse_Key(&mut entity, li);
+                parse_key(&mut entity, li);
             }else if li.contains(".ts") {
                 entity.clip_urls.push(li.to_string());
             }
@@ -199,10 +199,6 @@ impl M3u8Entity {
         self.key = key_bytes;
         println!("key_bytes={:?}", key_bytes);
     }
-    fn to_string(&self)->String{
-        format!("{{method={},key_url={},\nkey={:?},\niv={:?},\nclip_urls={:?}}}",
-            self.method, self.key_url, self.key,self.iv, self.clip_urls)
-    }
     pub fn need_decode(&self)-> bool{
         !self.key_url.is_empty()
     }
@@ -210,7 +206,7 @@ impl M3u8Entity {
 fn get_temp_path()-> Option<String>{
     std::env::args().filter(|e|e.contains("--temp="))
         .map(|e|e.replace("--temp=",""))
-        .find(|e|true)
+        .find(|_e|true)
 }
 fn dir_exists(dir_path: &str)-> bool{
     let dir_ex = std::fs::read_dir(dir_path);
@@ -225,67 +221,38 @@ fn timestamp1() -> i64 {
     let ms = since_the_epoch.as_secs() as i64 * 1000i64 + (since_the_epoch.subsec_nanos() as f64 / 1_000_000.0) as i64;
     ms
 }
-fn parse_Key(mm: &mut M3u8Entity, line: &str) {
-    let (k, vv) = line.split_once(":").unwrap();
-    let keyStr = vv;
-    let entrys = keyStr.split(",");
+fn parse_key(mm: &mut M3u8Entity, line: &str) {
+    let (_k, vv) = line.split_once(":").unwrap();
+    let key_str = vv;
+    let entrys = key_str.split(",");
     for entry in entrys {
-        let (x,y) = entry.split_once("=").unwrap();
+        let (_x,y) = entry.split_once("=").unwrap();
         let val = y;
         if entry.starts_with("METHOD") {
             mm.method = val.to_string();
         }else if entry.starts_with("URI") {
             mm.key_url = val[1..val.len()-1].to_string();
         }else if entry.starts_with("IV") {
-            mm.iv = hex2Byte(val);
+            mm.iv = hex2_byte(val);
         }
     }
 }
 
-fn hex2Byte(mut val: & str) -> [u8; 16] {
+pub fn hex2_byte(mut val: & str) -> [u8; 16] {
     if val.starts_with("0x") {
         val = &val[2..];
     }
     let nval = val.to_lowercase();
-    // println!("{}", a);
 
     let length = val.len();
     let mut idx = 0;
     let mut bytes = [0u8; 16];
     while idx+2 <= length {
-        let integer = from_hex(&nval[idx..idx+2]);
-        bytes[idx/2] = integer;
-        // bytes[idx/2] = integer/10*16 + integer % 10;
+        bytes[idx/2] = u8::from_str_radix(&nval[idx..idx+2], 16).unwrap();
         idx += 2;
     }
 
     return bytes;
-}
-
-fn from_hex(idx: &str) -> u8 {
-    let ac = idx.chars().next().unwrap();
-    let ac2 = idx.chars().last().unwrap();
-
-    let num:u8 = parse_hex_char(ac);
-    let num2:u8 = parse_hex_char(ac2);
-
-    num*16 + num2
-}
-
-fn parse_hex_char(ac: char) -> u8 {
-    let mut ac = ac;
-    if ac >= 'A' && ac <= 'C'{
-        ac = (ac as u8 - 'A' as u8 + 'a' as u8) as char;
-    }
-    if !(ac >= 'a' && ac <= 'f') && !(ac >= '0' && ac <= '9'){
-        panic!("解析数字错误:{}", ac);
-    }
-    let nu = ac as u8;
-    if ac >= '0' && ac <= '9'{
-        nu - ('0' as u8)
-    }else {
-        nu - ('a' as u8) + 10
-    }
 }
 fn cal_hash(input : &str) -> String{
     let mut hasher = DefaultHasher::new();

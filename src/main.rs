@@ -12,6 +12,7 @@ mod aes_demo;
 mod combine;
 mod str_util;
 mod config;
+mod Test;
 
 // #[tokio::main]
 fn main() {

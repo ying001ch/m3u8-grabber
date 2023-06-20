@@ -1,11 +1,11 @@
 [package]
-name = "app"
+name = "M3u8-Grabber"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "a m3u8 video downloader by Rust"
+authors = ["frank"]
 license = ""
 repository = ""
-default-run = "app"
+default-run = "M3u8-Grabber"
 edition = "2021"
 rust-version = "1.60"
 
