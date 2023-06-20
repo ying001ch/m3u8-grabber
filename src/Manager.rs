@@ -82,6 +82,9 @@ pub fn run(param: DownParam) {
     }
 }
 async fn download_async(entity: M3u8Item::M3u8Entity){
+    //设置进度
+    config::init_progress(entity.clip_urls.len());
+
     let clip_urls =  entity.clip_urls.clone();
     let temp_path = entity.temp_path.clone();
     let nd = entity.need_decode();
@@ -110,6 +113,8 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             }
             let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
+                //文件已经存在，无需下载
+                config::add_prog();
                 drop(permit);
                 return;
             }
@@ -155,6 +160,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             if let Err(e) = res{
                 println!("写入片段[{}]失败， err={}", idx + 1, e);
             }else{
+                config::add_prog();
                 println!("写入片段[{}]成功！", idx + 1);
             }
             drop(permit);

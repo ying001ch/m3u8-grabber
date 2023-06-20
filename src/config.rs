@@ -63,3 +63,40 @@ pub fn set_signal(ss: Signal) {
 pub fn get_signal() -> Signal {
     global_config.lock().unwrap().signal.clone()
 }
+static PROP:Mutex<Option<Prog>> = Mutex::new(None);
+pub fn init_progress(total_num: usize){
+    println!("===>初始化进度 : {}", total_num);
+    *PROP.lock().unwrap() = Some(Prog{
+        total: total_num,
+        finished: 0,
+        status: 1,
+    });
+}
+pub fn get_progress() -> (usize,usize,i32) {
+    let gard: MutexGuard<'_, Option<Prog>> = PROP.lock().unwrap();
+    //获取MutexGuard后 as_ref()获取 只读引用
+    let po = gard.as_ref();
+    match po {
+        Some(p)=> (p.total, p.finished,p.status),
+        None=>(0,0,0),
+    }
+    
+}
+pub fn add_prog() {
+    let mut ga = PROP.lock().unwrap();
+    //获取MutexGuard后 as_mut()获取 写引用
+    let a = ga.as_mut().unwrap();
+    a.finished += 1;
+    if a.finished > a.total {
+        a.finished =a.total;
+    }
+    //需要改变 Optiona内部的值时 使用map
+    // ga.as_mut().map(|f|{
+    //     f.finished += 1;
+    // });
+}
+struct Prog{
+    total: usize,
+    finished: usize,
+    status: i32 //0-未开始 1-进行中 -1-异常退出
+}

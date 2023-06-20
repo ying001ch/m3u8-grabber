@@ -4,6 +4,8 @@ use core::panic;
 use std::{thread, ops::{DerefMut, Deref}, borrow::Borrow, future, time::Duration};
 use M3u8Item::{DownParam, M3u8Entity};
 use config::Signal;
+use serde_json::{Value::{Number as ValNumber, self, String as jString}, Map};
+use serde_json::Number as Number;
 
 mod Manager;
 mod http_util;
@@ -24,7 +26,7 @@ fn main() {
   }
   //启动图形界面
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![submit_task, combine,pause])
+    .invoke_handler(tauri::generate_handler![submit_task, combine,pause,get_progress ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
@@ -65,6 +67,22 @@ fn combine(param_str: &str) -> &str{
 fn pause() -> &'static str{
   config::set_signal(Signal::Pause);
   return "暂停信号已发出";
+}
+#[tauri::command]
+fn get_progress() -> Map<String, Value>{
+  let mut map = serde_json::Map::with_capacity(2);
+  let (total, finished,status) = config::get_progress();
+  println!("=====> total = {}, finished = {}, status = {}", total, finished, status);
+  map.insert("status".to_string(), ValNumber(Number::from(status)));
+  if status == -1 {
+    // map.insert("status".to_string(), ValNumber(Number::from(-1)));
+  }else if status == 1 {
+    let prog = format!("{:.4}", finished as f64/total as f64);
+    map.insert("progress".to_string(), jString(prog));
+  }else{
+    map.insert("progress".to_string(), ValNumber(Number::from(0)));
+  }
+  return map;
 }
 fn dispatch(param: DownParam, async_task: bool){
   match param.task_type {

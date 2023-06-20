@@ -85,10 +85,10 @@
               只下载不合并<el-switch v-model="param.no_combine" />
             </div>
             <!-- 进度条 -->
-            <!-- <el-progress :text-inside="true" :stroke-width="30" :percentage="percentage" :status="progress_status">
-              <span>title mp4  {{percentage}}%</span>
+            <el-progress :text-inside="true" :stroke-width="30" :percentage="progress*100" :status="progress_status">
+              <span> 已完成 {{(progress*100).toFixed(2)}}%</span>
             </el-progress>
-            <el-progress type="circle" :percentage="percentage" :status="progress_status"/> -->
+            <!-- <el-progress type="circle" :percentage="percentage" :status="progress_status"/> -->
           </el-main>
           <el-footer>
             <el-button type="primary" @click="submitTask">开始下载</el-button>
@@ -110,7 +110,7 @@ export default {
   name: 'App',
   data () {
     return {
-      percentage: 30,
+      progress: 0,
       progress_status: '',
       param: {
         address: '',
@@ -124,6 +124,7 @@ export default {
         worker_num: 80,
         task_type: 1,
         no_combine: false,
+        signal: ''
       }
     }
   },
@@ -134,6 +135,7 @@ export default {
         .then((response) => {
           msgBox(response)
         })
+        this.signal = 'pause'
     },
     submitUpload: function (evn){
       console.log('文件提交 evn:' + evn)
@@ -143,19 +145,36 @@ export default {
       files.forEach(f=>console.log('f='+ f))
     },
     decrease: function (){
-      this.percentage -= 10
-      if(this.percentage <= 0){
-        this.percentage = 0
+      this.progress -= 10
+      if(this.progress <= 0){
+        this.progress = 0
       }
-      if(this.percentage < 100){
+      if(this.progress < 100){
         this.progress_status = ''
       }
     },
     increase: function(){
-      this.percentage += 10
-      if(this.percentage >=100){
-        this.percentage = 100
+      this.progress += 10
+      if(this.progress >=100){
+        this.progress = 100
         this.progress_status = 'success'
+      }
+    },
+    listen_progress(resp){
+      //0-正常 1-exception
+      if(resp.status == -1){
+        this.progress_status = 'exception'
+      }else{
+        this.progress = resp.progress;
+        if(this.progress < 1){
+          this.progress_status = ''
+          if(this.signal != 'pause'){
+            setTimeout(this.get_progress, 1000) 
+          }
+        }
+        if(this.progress >=1){
+          this.progress_status = 'success'
+        }
       }
     },
     submitTask: function (event) {
@@ -163,13 +182,26 @@ export default {
         msgBox('地址和保存路径必填')
         return
       }
-      let that = this.param
-      that.task_type = 1
+      this.signal = ''
+      let that = this
+      this.param.task_type = 1;
       let pam = JSON.stringify(this.param)
       console.log('sub pam: '+pam)
       invoke('submit_task', { paramStr: pam })
         .then((response) => {
           msgBox(response)
+           //触发获取进度通知
+           setTimeout(that.get_progress, 1000) 
+        })
+    },
+    // 获取进度通知
+    get_progress(){  
+      let that = this
+      invoke('get_progress', {})
+        .then((resp) => {
+          console.log('resp='+ JSON.stringify(resp))
+          //触发获取进度通知
+          that.listen_progress(resp)
         })
     },
     combine : function(event) {
@@ -177,8 +209,7 @@ export default {
         msgBox('片段目录和保存路径必填')
         return
       }
-      let that = this.param
-      that.task_type = 2
+      this.param.task_type = 2;
       let pam = JSON.stringify(this.param)
       console.log('sub pam: '+pam)
       invoke('combine', { paramStr: pam })
