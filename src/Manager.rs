@@ -5,7 +5,7 @@ use tokio::runtime::Builder;
 use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
-use crate::aes_demo;
+use crate::aes_util;
 use crate::combine;
 use crate::config::Signal;
 use crate::http_util;
@@ -143,7 +143,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             //写入文件
             let temp;
             let result: &[u8] = if nd {
-                let res = aes_demo::decrypt(bytes.as_ref().unwrap(), &key, &iv);
+                let res = aes_util::decrypt(bytes.as_ref().unwrap(), &key, &iv);
                 if let Ok(v) = res{
                     temp = v;
                     &temp
