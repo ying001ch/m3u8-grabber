@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use anyhow::bail;
 use bytes::Bytes;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -25,7 +26,44 @@ use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
 
-pub fn run(param: DownParam, async_task: bool) -> Result<()>{
+pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
+    //TODO 校验参数
+    validate_param(&param)?;
+    match param.task_type {
+        //下载任务
+        config::TASK_DOWN => run(param, async_task),
+        //合并任务
+        config::TASK_COM => if async_task{
+                thread::spawn(move||combine::combine_clip(
+                    param.combine_dir.unwrap().as_str(),
+                    &param.save_path.as_str()).unwrap()
+                    );
+                    Ok(())
+                }else{
+                    combine::combine_clip(
+                    param.combine_dir.unwrap().as_str(),
+                    &param.save_path.as_str())
+                },
+        _=> bail!("任务类型不对"),
+    }
+}
+fn validate_param(param: &DownParam)-> Result<()>{
+    //校验 合并参数、下载参数
+    match param.task_type {
+      config::TASK_COM => {
+        param.combine_dir.as_ref().ok_or(anyhow!("合并目录未指定")).map(|_|())
+      },
+      config::TASK_DOWN=>{
+        if param.address.is_empty() || !param.address.starts_with("http"){
+          bail!("下载地址格式不正确")
+        }
+        Ok(())
+      },
+      _=> bail!("任务类型不对")
+    }
+}
+
+fn run(param: DownParam, async_task: bool) -> Result<()>{
     println!("Hello this is M3u8-Downloader by rust");
 
     //设置代理和请求头

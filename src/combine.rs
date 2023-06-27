@@ -38,7 +38,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str) -> Result<()>{
         });
         for f in file_list {
             com_txt.write_all(f.as_bytes())
-                .context(format!("生成合并文件时出错，file:{}", com_file_name));
+                .context(format!("生成合并文件时出错，file:{}", com_file_name))?;
         }
         com_txt.flush()?;
         com_file_name
