@@ -25,7 +25,10 @@ fn test_json(){
 }
 #[cfg(test)]
 mod Test{
+    use std::mem::discriminant;
     use std::num::ParseIntError;
+
+    use crate::config::Signal;
 
     use super::DownParam;
     use super::M3u8Item;
@@ -45,6 +48,15 @@ mod Test{
         println!("us={:?}, len={}", us,us.len());
         println!("u2={:?}, len={}", u2,u2.len());
         assert_eq!(us, u2);
+    }
+    #[test]
+    fn test_enum(){
+        println!("discriminant(Normal) = {:?}", discriminant(&Signal::Normal));
+        println!("discriminant(Pause) = {:?}", discriminant(&Signal::Pause));
+        println!("discriminant(End) = {:?}", discriminant(&Signal::End));
+        // assert_eq!(discriminant(&Signal::Normal), discriminant(&Signal::End));
+        // assert_eq!(discriminant(&Signal::End), discriminant(&Signal::Pause));
+        assert_eq!(discriminant(&Signal::Normal), discriminant(&Signal::Normal));
     }
 
 }

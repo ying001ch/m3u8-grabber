@@ -1,16 +1,16 @@
 use std::{env, io::Write, process::{Command, Stdio}, string};
 
-pub fn combine_clip(clip_dir: &str, save_path: &str) {
-    let dir_ex = std::fs::read_dir(clip_dir);
-    if dir_ex.is_err(){
-        panic!("clip_dir: {} not exists!", clip_dir);
-    }
+use anyhow::{Result, Context, bail};
+
+pub fn combine_clip(clip_dir: &str, save_path: &str) -> Result<()>{
+    let dir_ex = std::fs::read_dir(clip_dir)
+        .context(format!("clip_dir: {} not exists!", clip_dir))?;
 
     let save_path = get_output_name(save_path);
     println!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path);
     // 1. 检测环境变量
     let ffmpeg_dir = std::env::var("FFMPEG_PATH")
-    .expect("没有配置 FFMPEG_PATH 环境变量");
+        .context("没有配置 FFMPEG_PATH 环境变量")?;
     let ffmpeg = format!("{}/ffmpeg",ffmpeg_dir);
     println!("ffmpeg: {}", ffmpeg);
 
@@ -18,9 +18,9 @@ pub fn combine_clip(clip_dir: &str, save_path: &str) {
     let com_file_name={
         let com_file_name = format!("{}/combine.txt",clip_dir);
         let mut com_txt = std::fs::File::create(&com_file_name)
-                .expect("创建合并文件失败");
+                .context("创建合并文件失败")?;
         let mut file_list = vec![];
-        for entry in  std::fs::read_dir(clip_dir).expect("读取文件夹失败"){
+        for entry in  dir_ex{
             let file_name = entry.unwrap().file_name().into_string()
                     .expect("获取文件名时错误");
             if !file_name.contains(".ts") {
@@ -31,16 +31,16 @@ pub fn combine_clip(clip_dir: &str, save_path: &str) {
         }
         if file_list.is_empty(){
             println!("合并目录：{}为空", clip_dir);
-            return;
+            return Ok(());
         }
         file_list.sort_by(|x,y|{
             x.cmp(y)
         });
         for f in file_list {
             com_txt.write_all(f.as_bytes())
-                    .expect(format!("生成合并文件时出错，file:{}", com_file_name).as_str());
+                .context(format!("生成合并文件时出错，file:{}", com_file_name));
         }
-        com_txt.flush().unwrap();
+        com_txt.flush()?;
         com_file_name
     };
     println!("com_file_name: {}", &com_file_name);
@@ -72,6 +72,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str) {
         std::fs::remove_dir_all(clip_dir).expect("删除临时文件失败！");
         println!("删除临时文件完成！");
     }
+    Ok(())
 }
 
 fn get_output_name(save_path: &str) -> String {

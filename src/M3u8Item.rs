@@ -1,12 +1,14 @@
 use std::collections::hash_map::DefaultHasher;
 use std::env;
+use std::error::Error;
 use std::fmt::format;
 use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
-use crate::str_util;
+use crate::{str_util};
 use crate::config;
+use anyhow::{Result, bail, Context};
 use serde::{Serialize, Deserialize};
 
 //下载任务 参数
@@ -96,12 +98,11 @@ impl M3u8Entity {
             temp_path: tt
         };
     }
-    pub fn from(param: &DownParam) -> M3u8Entity {
+    pub fn from(param: &DownParam) -> Result<M3u8Entity> {
         let content;
         let m3u8_file = param.m3u8_file.as_ref();
         if m3u8_file.is_some() && !m3u8_file.unwrap().is_empty(){
-            //1. 解析m3u8文件
-            content = std::fs::read_to_string(m3u8_file.unwrap()).unwrap();
+            content = std::fs::read_to_string(m3u8_file.unwrap())?;
         } else {
             //1. 解析m3u8文件
             let m3u8_url = param.address.as_str();
@@ -122,33 +123,38 @@ impl M3u8Entity {
             }
         }
         if entity.clip_urls.len()==0{
-            panic!("M3U8 元信息解析错误，未解析到视频片段信息。content: \n{}", &content[0..200]);
+            //TODO 
+            bail!(format!("M3U8 元信息解析错误，未解析到视频片段信息。content: \n{}", &content[0..200]));
         }
         if entity.key_url.len()==0 {
             println!("未发现密钥信息, 将不进行解密！");
         }
         println!("clip num: {}", entity.clip_urls.len());
         // temp_path
-        if let Some(t) = param.temp_path.as_ref().filter(|f|!f.is_empty()){
-            entity.temp_path = t.to_string();
-        }
+        param.temp_path.as_ref().filter(|f|!f.is_empty())
+            .map(|f|{
+                entity.temp_path = f.to_string();
+            });
+        // if let Some(t) = param.temp_path.as_ref().filter(|f|!f.is_empty()){
+        //     entity.temp_path = t.to_string();
+        // }
 
         if !dir_exists(&entity.temp_path) {
             std::fs::create_dir(&entity.temp_path)
-                    .expect("creat temp_path failed.");
+                .context(format!("create temp path failed. {}", &entity.temp_path))?;
         }
         println!("temp_path : {}", &entity.temp_path);
 
         entity.save_path = param.save_path.to_string();
 
         //----------------------------------------------------------------
-        entity.process(param);
-        entity
+        entity.process(param)?;
+        Ok(entity)
     }
     /**
      * 处理urlPrefix 和 获取解密key
      */
-    fn process(&mut self, param :&DownParam) {
+    fn process(&mut self, param :&DownParam) -> Result<()> {
         let m3u8_url = param.address.as_str();
         let mut idx1: i32 = str_util::index_of('?', m3u8_url);
         if idx1 == -1 {
@@ -156,16 +162,16 @@ impl M3u8Entity {
         }
         let idx2 = str_util::last_index('/', &m3u8_url[0..idx1 as usize]);
         if idx2 == -1 {
-            panic!("最后一个 / 找不到");
+            bail!("M3u8地址最后一个 / 找不到")
         }
         self.url_prefix = Some((&m3u8_url[0..idx2 as usize]).to_string() + "/");
         println!("url_prefix = {}", self.url_prefix.as_ref().unwrap());
     
-        self.req_key(param);
+        self.req_key(param)
     }
-    pub fn req_key(&mut self, param :&DownParam) {
+    pub fn req_key(&mut self, param :&DownParam) -> Result<()>{
         if !self.need_decode(){
-            return;
+            return Ok(());
         }
 
         let pr = param.key_str.as_ref();
@@ -178,18 +184,18 @@ impl M3u8Entity {
 
             self.key = k;
             println!("key_bytes={:?}", self.key);
-            return;
+            return Ok(());
         }
 
         if !(&self.key_url).starts_with("http") {
             self.key_url = self.url_prefix.as_ref().unwrap().to_string() + &self.key_url;
         }
         println!("req_key key_url={}", &self.key_url);
-        let raw_bytes = http_util::query_bytes(&self.key_url,0).unwrap();
+        let raw_bytes = http_util::query_bytes(&self.key_url,0)?;
         let mut key_bytes = [0u8;16];
         let len = raw_bytes.len();
         if len != 16 {
-            panic!("reqKey failed");
+            bail!("requested key length is not 16")
         }
         let mut idx=0;
         for b in *raw_bytes {
@@ -198,6 +204,7 @@ impl M3u8Entity {
         }
         self.key = key_bytes;
         println!("key_bytes={:?}", key_bytes);
+        Ok(())
     }
     pub fn need_decode(&self)-> bool{
         !self.key_url.is_empty()

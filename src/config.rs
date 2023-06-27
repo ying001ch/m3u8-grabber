@@ -1,12 +1,7 @@
-use std::{sync::{Mutex, MutexGuard}, cell::RefCell};
+use core::panic;
+use std::{sync::{Mutex, MutexGuard}, cell::RefCell, collections::HashMap, mem::discriminant};
 
-use tokio::runtime::Runtime;
-
-#[derive(Debug, Clone)]
-pub enum Signal {
-    Normal,
-    Pause
-}
+use tokio::{runtime::Runtime, task::AbortHandle};
 
 pub struct GlobalConfig{
     work_num: usize,
@@ -25,6 +20,21 @@ static global_config: Mutex<GlobalConfig> = Mutex::new(GlobalConfig{
 pub const TASK_DOWN: usize = 1; //下载视频
 pub const TASK_COM: usize = 2;  //合并视频
 
+#[derive(Debug, Clone)]
+pub enum Signal {
+    Normal,
+    Pause,
+    End,
+}
+struct TaskState{
+    hash: String,
+    state: Signal,
+    abort_handles: Vec<AbortHandle>,
+    headers: Vec<(String,String)>,
+}
+static task_map:Mutex<Option<HashMap<String,TaskState>>> = Mutex::new(None);
+
+//----------------------------------------------------------------
 pub fn set_work_num(work_num: usize) {
     let a = global_config.lock();
     match a {
@@ -54,14 +64,6 @@ pub fn set_headers(v: Vec<(String,String)>) {
 }
 pub fn get_headers() -> Vec<(String,String)> {
      global_config.lock().unwrap().headers.clone()
-}
-//-----sinal-----
-pub fn set_signal(ss: Signal) {
-    let mut a = global_config.lock().unwrap();
-    a.signal = ss;
-}
-pub fn get_signal() -> Signal {
-    global_config.lock().unwrap().signal.clone()
 }
 static PROP:Mutex<Option<Prog>> = Mutex::new(None);
 pub fn init_progress(total_num: usize){
@@ -99,4 +101,47 @@ struct Prog{
     total: usize,
     finished: usize,
     status: i32 //0-未开始 1-进行中 -1-异常退出
+}
+//----------------------------------------------------------------
+pub fn add_task(task_hash: &str) {
+    let mut guard = task_map.lock().unwrap();
+    if guard.is_none(){
+        println!("任务状态没有初始化");
+        *guard = Some(HashMap::new());
+    }
+    let map = guard.as_mut().unwrap();
+    map.insert(task_hash.to_string(), TaskState { 
+        hash: task_hash.to_string(),
+        state: Signal::Normal, 
+        abort_handles: vec![],
+        headers: vec![]
+    });
+}
+pub fn set_signal(task_hash: &str, ss: Signal) {
+    let mut guard = task_map.lock().unwrap();
+    if guard.is_none(){
+        panic!("任务状态没有初始化");
+    }
+    let map = guard.as_mut().unwrap()
+        .get_mut("k")
+        .map(|f|f.state = ss);
+}
+pub fn is_end(task_hash: &str) -> bool{
+    predict_status(task_hash, Signal::End)
+}
+pub fn is_abort(task_hash: &str) -> bool {
+    predict_status(task_hash, Signal::Pause)
+}
+pub fn is_normal(task_hash: &str) -> bool {
+    predict_status(task_hash, Signal::Normal)
+}
+pub fn get_status(task_hash: &str) -> Option<Signal> {
+    task_map.lock().unwrap().as_ref().unwrap().get(task_hash).map(|f|f.state.clone())
+}
+fn predict_status(task_hash: &str, signal: Signal) -> bool {
+    task_map.lock().unwrap().as_ref().unwrap().get(task_hash)
+    .map(|f|{
+            discriminant(&signal) == discriminant(&f.state)
+        })
+        .unwrap_or(true)
 }
