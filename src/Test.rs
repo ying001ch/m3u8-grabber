@@ -58,5 +58,26 @@ mod Test{
         // assert_eq!(discriminant(&Signal::End), discriminant(&Signal::Pause));
         assert_eq!(discriminant(&Signal::Normal), discriminant(&Signal::Normal));
     }
+    #[test]
+    fn test_rw_lock(){
+        let lock = std::sync::RwLock::new(12);
+        { //读锁；获取多个读锁不会阻塞
+            let r1 = lock.read().unwrap();
+            let r2 = lock.read().unwrap();
+            println!("r1 = {:?}", r1);
+            println!("r2 = {:?}", r2);
+        }
+        
+        
+        { //写锁
+            let mut w = lock.write().unwrap();
+            *w = 90;
+            
+            //写锁 未释放时获取读锁会阻塞
+            // let r = lock.read().unwrap();
+            // println!("r1 = {:?}", r);
+        }
+        println!("r = {:?}", lock.read().unwrap());
+    }
 
 }

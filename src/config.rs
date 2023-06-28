@@ -1,5 +1,5 @@
 use core::panic;
-use std::{sync::{Mutex, MutexGuard}, cell::RefCell, collections::HashMap, mem::discriminant};
+use std::{sync::{RwLock}, cell::RefCell, collections::HashMap, mem::discriminant};
 
 use tokio::{runtime::Runtime, task::AbortHandle};
 
@@ -10,13 +10,12 @@ pub struct GlobalConfig{
     signal: Signal,
 }
 //TODO 全局配置存储
-static global_config: Mutex<GlobalConfig> = Mutex::new(GlobalConfig{
+static global_config: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
     work_num: 2,
     proxys: None,
     headers: vec![],
     signal: Signal::Normal,
 });
-// static rt: Mutex<Option<Runtime>> = Mutex::new(None);
 pub const TASK_DOWN: usize = 1; //下载视频
 pub const TASK_COM: usize = 2;  //合并视频
 
@@ -32,11 +31,11 @@ struct TaskState{
     abort_handles: Vec<AbortHandle>,
     headers: Vec<(String,String)>,
 }
-static task_map:Mutex<Option<HashMap<String,TaskState>>> = Mutex::new(None);
+static task_map:RwLock<Option<HashMap<String,TaskState>>> = RwLock::new(None);
 
 //----------------------------------------------------------------
 pub fn set_work_num(work_num: usize) {
-    let a = global_config.lock();
+    let a = global_config.write();
     match a {
         Ok(mut res)=>res.work_num=work_num,
         Err(e)=>{
@@ -47,36 +46,36 @@ pub fn set_work_num(work_num: usize) {
     // a.borrow_mut().work_num = 12;
 }
 pub fn get_work_num() -> usize {
-    global_config.lock().unwrap().work_num
+    global_config.read().unwrap().work_num
 }
 //----------------------------------------------------------------
 pub fn set_proxys(ss: String) {
-    let mut a = global_config.lock().unwrap();
+    let mut a = global_config.write().unwrap();
     a.proxys = Some(ss);
 }
 pub fn get_proxys() -> String {
-    global_config.lock().unwrap().proxys.clone().unwrap_or("".to_string())
+    global_config.read().unwrap().proxys.clone().unwrap_or("".to_string())
 }
 //----------------------------------------------------------------
 pub fn set_headers(v: Vec<(String,String)>) {
-    let mut a = global_config.lock().unwrap();
+    let mut a = global_config.write().unwrap();
     a.headers = v;
 }
 pub fn get_headers() -> Vec<(String,String)> {
-     global_config.lock().unwrap().headers.clone()
+     global_config.read().unwrap().headers.clone()
 }
-static PROP:Mutex<Option<Prog>> = Mutex::new(None);
+static PROP:RwLock<Option<Prog>> = RwLock::new(None);
 pub fn init_progress(total_num: usize){
     println!("===>初始化进度 : {}", total_num);
-    *PROP.lock().unwrap() = Some(Prog{
+    *PROP.write().unwrap() = Some(Prog{
         total: total_num,
         finished: 0,
         status: 1,
     });
 }
 pub fn get_progress() -> (usize,usize,i32) {
-    let gard: MutexGuard<'_, Option<Prog>> = PROP.lock().unwrap();
-    //获取MutexGuard后 as_ref()获取 只读引用
+    let gard = PROP.read().unwrap();
+    //获取 ReadGuard后 as_ref()获取 只读引用
     let po = gard.as_ref();
     match po {
         Some(p)=> (p.total, p.finished,p.status),
@@ -85,8 +84,8 @@ pub fn get_progress() -> (usize,usize,i32) {
     
 }
 pub fn add_prog() {
-    let mut ga = PROP.lock().unwrap();
-    //获取MutexGuard后 as_mut()获取 写引用
+    let mut ga = PROP.write().unwrap();
+    //获取 ReadGuard后 as_mut()获取 写引用
     let a = ga.as_mut().unwrap();
     a.finished += 1;
     if a.finished > a.total {
@@ -104,7 +103,7 @@ struct Prog{
 }
 //----------------------------------------------------------------
 pub fn add_task(task_hash: &str) {
-    let mut guard = task_map.lock().unwrap();
+    let mut guard = task_map.write().unwrap();
     if guard.is_none(){
         println!("任务状态没有初始化");
         *guard = Some(HashMap::new());
@@ -118,7 +117,7 @@ pub fn add_task(task_hash: &str) {
     });
 }
 pub fn set_signal(task_hash: &str, ss: Signal) {
-    let mut guard = task_map.lock().unwrap();
+    let mut guard = task_map.write().unwrap();
     if guard.is_none(){
         panic!("任务状态没有初始化");
     }
@@ -136,10 +135,10 @@ pub fn is_normal(task_hash: &str) -> bool {
     predict_status(task_hash, Signal::Normal)
 }
 pub fn get_status(task_hash: &str) -> Option<Signal> {
-    task_map.lock().unwrap().as_ref().unwrap().get(task_hash).map(|f|f.state.clone())
+    task_map.read().unwrap().as_ref().unwrap().get(task_hash).map(|f|f.state.clone())
 }
 fn predict_status(task_hash: &str, signal: Signal) -> bool {
-    task_map.lock().unwrap().as_ref().unwrap().get(task_hash)
+    task_map.read().unwrap().as_ref().unwrap().get(task_hash)
     .map(|f|{
             discriminant(&signal) == discriminant(&f.state)
         })
