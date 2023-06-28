@@ -17,6 +17,7 @@ mod command;
 
 // #[tokio::main]
 fn main() {
+  config::init_task_view();
   //判断是否使用命令行
   if use_cmd(){
     let param:DownParam = DownParam::from_cmd();

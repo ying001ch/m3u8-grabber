@@ -209,6 +209,9 @@ impl M3u8Entity {
     pub fn need_decode(&self)-> bool{
         !self.key_url.is_empty()
     }
+    pub fn clip_num(&self) -> usize{
+        self.clip_urls.len()
+    }
 }
 fn get_temp_path()-> Option<String>{
     std::env::args().filter(|e|e.contains("--temp="))

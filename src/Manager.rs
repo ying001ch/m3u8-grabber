@@ -88,7 +88,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     
     
     let entity = M3u8Item::M3u8Entity::from(&param)?;
-    config::add_task(&entity.temp_path); //使用片段临时路径 创建任务状态信息
+    config::add_task(&entity.temp_path, entity.clip_num()); //使用片段临时路径 创建任务状态信息
     let one = move ||{
         let temp_path = entity.temp_path.clone();
         let save_path = entity.save_path.clone();
@@ -116,8 +116,6 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     Ok(())
 }
 async fn download_async(entity: M3u8Item::M3u8Entity){
-    //设置进度
-    config::init_progress(entity.clip_urls.len());
 
     let clip_urls =  entity.clip_urls.clone();
     let temp_path = entity.temp_path.clone();
@@ -148,7 +146,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
                 //文件已经存在，无需下载
-                config::add_prog();
+                config::add_prog(&temp_path_clone);
                 drop(permit);
                 return;
             }
@@ -194,7 +192,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             if let Err(e) = res{
                 println!("写入片段[{}]失败， err={}", idx + 1, e);
             }else{
-                config::add_prog();
+                config::add_prog(&temp_path_clone);
                 println!("写入片段[{}]成功！", idx + 1);
             }
             drop(permit);
@@ -220,7 +218,8 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             tokio::time::sleep(Duration::from_millis(1000)).await;
         }
         println!("=====>停止任务执行, status: {:?}", config::get_status(&temp_clone));
-        abort_v.iter().filter(|a|!a.is_finished())
+        abort_v.iter()
+            .filter(|a|!a.is_finished())
             .for_each(|a|a.abort());
     });
 

@@ -47,18 +47,6 @@ pub fn pause(task_hash: &str) -> &'static str{
 /// TODO 修改成获取状态 TaskView
 #[tauri::command]
 pub fn get_progress() -> Vec<TaskView>{
-    // let mut map = serde_json::Map::with_capacity(2);
-    // let (total, finished,status) = config::get_progress();
-    // println!("=====> total = {}, finished = {}, status = {}", total, finished, status);
-    // map.insert("status".to_string(), ValNumber(Number::from(status)));
-    // if status == -1 {
-    //   // map.insert("status".to_string(), ValNumber(Number::from(-1)));
-    // }else if status == 1 {
-    //   let prog = format!("{:.4}", finished as f64/total as f64);
-    //   map.insert("progress".to_string(), jString(prog));
-    // }else{
-    //   map.insert("progress".to_string(), ValNumber(Number::from(0)));
-    // }
     //TODO 刷新 任务状态
-    return vec![];
+    return config::get_task_view();
 }
