@@ -1,8 +1,9 @@
 use core::panic;
 use std::{sync::RwLock,collections::HashMap, mem::discriminant};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use tokio::{task::AbortHandle};
+use serde::Serialize;
 
 use crate::view::TaskView;
 
@@ -21,7 +22,7 @@ static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
 pub const TASK_DOWN: usize = 1; //下载视频
 pub const TASK_COM: usize = 2;  //合并视频
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default,Serialize)]
 pub enum Signal {
     #[default] //设置枚举默认值
     Normal,
@@ -92,7 +93,7 @@ pub fn get_task_view() -> Vec<TaskView> {
         .map(|f|{
             TaskView { task_id: f.hash.clone(), 
                 err_msg: "".to_string(), // TODO 获取错误信息
-                status: "".to_string(), //TODO 获取任务状态
+                status: f.state.clone(), //TODO 获取任务状态
                 progress: f.progress() 
             }
         })
@@ -108,13 +109,19 @@ pub fn add_prog(task_hash: &str) {
 pub fn init_task_view(){
     *TASK_MAP.write().unwrap() = Some(HashMap::new());
 }
-pub fn add_task(task_hash: &str, clip_num: usize) {
+pub fn add_task(task_hash: &str, clip_num: usize) -> Result<()>{
     let mut guard = TASK_MAP.write().unwrap();
     if guard.is_none(){
         panic!("=====taskView没有初始化!=====");
     }
+    if let Some(t) = guard.as_mut().unwrap().get(task_hash){
+        if let Signal::Normal = t.state {
+            bail!("任务正在运行，无需添加")
+        }
+    }
     guard.as_mut().unwrap()
         .insert(task_hash.to_string(), TaskState::new(task_hash, clip_num));
+    Ok(())
 }
 pub fn abort_task(hash: &str)->Result<&str>{
     TASK_MAP.read().unwrap().as_ref().unwrap().get(hash)
@@ -136,7 +143,7 @@ pub fn set_signal(task_hash: &str, ss: Signal) {
         panic!("=====taskView没有初始化!=====");
     }
     guard.as_mut().unwrap()
-        .get_mut("k")
+        .get_mut(task_hash)
         .map(|f|f.state = ss);
 }
 pub fn is_end(task_hash: &str) -> bool{

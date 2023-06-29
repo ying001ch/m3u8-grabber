@@ -23,6 +23,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::SystemTime;
 
+/// 决定任务是 异步还是同步，合并文件还是下载文件
 pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
     //TODO 校验参数
     validate_param(&param)?;
@@ -44,6 +45,7 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
         _=> bail!("任务类型不对"),
     }
 }
+/// 校验参数
 fn validate_param(param: &DownParam)-> Result<()>{
     //校验 合并参数、下载参数
     match param.task_type {
@@ -59,7 +61,7 @@ fn validate_param(param: &DownParam)-> Result<()>{
       _=> bail!("任务类型不对")
     }
 }
-
+/// 运行下载任务
 fn run(param: DownParam, async_task: bool) -> Result<()>{
     println!("Hello this is M3u8-Downloader by rust");
 
@@ -85,7 +87,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     
     
     let entity = M3u8Item::M3u8Entity::from(&param)?;
-    config::add_task(&entity.temp_path, entity.clip_num()); //使用片段临时路径 创建任务状态信息
+    config::add_task(&entity.temp_path, entity.clip_num())?; //使用片段临时路径 创建任务状态信息
     let one = move ||{
         let temp_path = entity.temp_path.clone();
         let save_path = entity.save_path.clone();
@@ -95,6 +97,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
                 .block_on(download_async(entity));
         let spend_time = st.elapsed().unwrap().as_secs();
 
+        println!("status is {:?}", config::get_status(&temp_path));
         if config::is_abort(&temp_path){
             println!("--->下载暂停");
             return ;
@@ -112,6 +115,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     }
     Ok(())
 }
+///异步下载方法
 async fn download_async(entity: M3u8Item::M3u8Entity){
     let clip_urls =  entity.clip_urls.clone();
     let temp_path = entity.temp_path.clone();
@@ -187,9 +191,9 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
                     .await;
             if let Err(e) = res{
                 println!("写入片段[{}]失败， err={}", idx + 1, e);
+                err_clone.lock().unwrap().push(idx);
             }else{
                 config::add_prog(&temp_path_clone);
-                println!("写入片段[{}]成功！", idx + 1);
             }
             drop(permit);
         });
@@ -213,7 +217,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
     let mut idx = 1;
     for j in join_v{
         // println!("===> handler={} 开始执行",idx);
-        j.await.unwrap();
+        let _ = j.await;
         // println!("===> handler={} 执行结束", idx);
         idx += 1;
     }
@@ -234,30 +238,8 @@ async fn exec_group(join_v: Vec<JoinHandle<()>>){
         println!("===> handler= 执行结束");
     }
 }
-fn file_exists(file_path: &str)-> bool{
-    let file_ex = std::fs::File::open(file_path);
-    file_ex.is_ok()
-}
 
-fn put_retry(retry_num: &mut i32, clone_pkg: &Arc<Mutex<Vec<(i32, String, i32)>>>, 
-        clip_index: i32, clip: &String) {
-    if *retry_num < 3{
-        let mut pkd_ref = clone_pkg.lock().unwrap();
-        let len = pkd_ref.len();
-        *retry_num += 1;
-        pkd_ref.insert(len/2, (clip_index, clip.to_string(), *retry_num));
-    }
-}
-fn get_thread_num()->u8{
-    let num = std::env::args().filter(|e|e.contains("--worker="))
-        .map(|e|e.replace("--worker=",""))
-        .map(|e|->u8 {e.parse().expect("")})
-        .find(|e|true)
-        .unwrap_or(4);
-    println!("worker num={}", num);
-    num
-}
-
+/// 构建文件名前缀
 fn make_name(num: i32) -> String {
     if num < 1000 {
         let s = format!("{}", num);
@@ -267,24 +249,13 @@ fn make_name(num: i32) -> String {
     }
     format!("{}", num)
 }
-
+///异步写入文件
 async fn write_file_async(result: &[u8], f_name: String) -> Result<(), Error> {
-    let mut f = File::create(f_name.clone()).await.unwrap();
+    let mut f = File::create(f_name.clone()).await?;
 
-    let n = f.write(result).await.unwrap();
-    if let Err(e) = f.flush().await{
-        return Err(e);
-    }
-    println!("write {} bytes", n);
+    let n = f.write(result).await?;
+    f.flush().await?;
 
-    println!("写入成功 counter:{}, size: {}", f_name, n);
+    println!("写入成功 counter:{}, size: {}bytes", f_name, n);
     Ok(())
-}
-fn write_file(result: &[u8], entity: &M3u8Item::M3u8Entity, file_name: String) {
-    let save_path = entity.temp_path.clone();
-
-    let mut file =
-        std::fs::File::create(format!("{}/{}.ts", save_path, file_name)).expect("open file failed");
-    let usize = file.write(result).expect("写入文件失败");
-    // println!("写入成功 counter:{}, size: {}", file_name, usize);
 }

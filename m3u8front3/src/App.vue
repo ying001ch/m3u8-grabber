@@ -85,8 +85,10 @@
               只下载不合并<el-switch v-model="param.no_combine" />
             </div>
             <!-- 进度条 -->
-            <el-progress :text-inside="true" :stroke-width="30" :percentage="progress*100" :status="progress_status">
-              <span> 已完成 {{(progress*100).toFixed(2)}}%</span>
+            <el-progress v-for="(task,index) in tasks"
+                :text-inside="true" :stroke-width="30" :percentage="task.progress*100" 
+                :status="status_transfer(task.status)">
+              <span>任务{{ index+1 }} 已完成 {{(task.progress*100).toFixed(2)}}%</span>
             </el-progress>
             <!-- <el-progress type="circle" :percentage="percentage" :status="progress_status"/> -->
           </el-main>
@@ -106,6 +108,22 @@
 <script>
 import { invoke } from '@tauri-apps/api'
 import { ElMessageBox } from 'element-plus'
+//进度条状态
+const success = 'success' 
+const exception = 'exception' 
+const warning = 'warning' 
+//任务状态
+const Normal = 'Normal'
+const Pause = 'Pause'
+const End = 'End'
+const Exception = 'Exception'
+const map = {
+  Normal: '',
+  Pause: warning,
+  End: success,
+  Exception: exception,
+}
+let refresh_flag = false // 刷新标识
 export default {
   name: 'App',
   data () {
@@ -125,56 +143,42 @@ export default {
         task_type: 1,
         no_combine: false,
         signal: ''
-      }
+      },
+      tasks: [
+        // {
+        //   task_id: '12',
+        //   err_msg: '',
+        //   status: 'Exception',
+        //   progress: 0.35
+        // }
+      ]
     }
   },
   methods:  {
+    status_transfer: function(task_status){
+      return map[task_status]
+    },
     pause: function(){
+      if(this.tasks.length <= 0){
+        msgBox('没有正在运行的任务')
+        return;
+      }
       console.log('暂停下载')
-      invoke('pause', {})
+      //传参数要传成驼峰格式
+      invoke('pause', {taskHash: this.tasks[0].task_id})
         .then((response) => {
           msgBox(response)
         })
         this.signal = 'pause'
     },
-    submitUpload: function (evn){
-      console.log('文件提交 evn:' + evn)
-    },
-    handleExceed: function(files){
-      console.log('获取文件 files: ' + files);
-      files.forEach(f=>console.log('f='+ f))
-    },
-    decrease: function (){
-      this.progress -= 10
-      if(this.progress <= 0){
-        this.progress = 0
-      }
-      if(this.progress < 100){
-        this.progress_status = ''
-      }
-    },
-    increase: function(){
-      this.progress += 10
-      if(this.progress >=100){
-        this.progress = 100
-        this.progress_status = 'success'
-      }
-    },
-    listen_progress(resp){
-      //0-正常 1-exception
-      if(resp.status == -1){
-        this.progress_status = 'exception'
+    listen_progress: function(tasks_){
+      this.tasks = tasks_;
+
+      let normal_num = tasks_.filter(t=>t.status== Normal).length
+      if (normal_num > 0) {
+        setTimeout(this.get_progress, 1000) 
       }else{
-        this.progress = resp.progress;
-        if(this.progress < 1){
-          this.progress_status = ''
-          if(this.signal != 'pause'){
-            setTimeout(this.get_progress, 1000) 
-          }
-        }
-        if(this.progress >=1){
-          this.progress_status = 'success'
-        }
+        refresh_flag = false
       }
     },
     submitTask: function (event) {
@@ -191,17 +195,24 @@ export default {
         .then((response) => {
           msgBox(response)
            //触发获取进度通知
-           setTimeout(that.get_progress, 1000) 
+           if (!refresh_flag) {
+              refresh_flag = true
+              setTimeout(that.get_progress, 1000) 
+           }
+        }).catch((error) => {
+          msgBox(error)
         })
     },
     // 获取进度通知
-    get_progress(){  
+    get_progress: function(){  
       let that = this
       invoke('get_progress', {})
         .then((resp) => {
           console.log('resp='+ JSON.stringify(resp))
           //触发获取进度通知
           that.listen_progress(resp)
+        }).catch((err) => {
+          msgBox(err)
         })
     },
     combine : function(event) {
