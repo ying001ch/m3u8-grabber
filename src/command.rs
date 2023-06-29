@@ -39,9 +39,9 @@ pub fn combine_cmd(param_str: &str) -> Result<&str, String>{
 }
 /// 暂停任务
 #[tauri::command]
-pub fn pause(task_hash: &str) -> &'static str{
+pub fn pause(task_hash: &str) -> Result<&str,String>{
     config::set_signal(task_hash, Signal::Pause);
-    return "暂停信号已发出";
+    return config::abort_task(task_hash).map_err(|e|e.to_string());
 }
 /// 获取任务状态
 /// TODO 修改成获取状态 TaskView

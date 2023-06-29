@@ -1,9 +1,7 @@
 use anyhow::anyhow;
 use anyhow::bail;
-use bytes::Bytes;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tokio::runtime::Builder;
 use tokio::sync::Semaphore;
 use tokio::task::AbortHandle;
 use tokio::task::JoinHandle;
@@ -17,13 +15,12 @@ use crate::M3u8Item;
 use crate::M3u8Item::DownParam;
 use crate::str_util;
 use crate::config;
-use std::fmt::format;
 use std::io::Error;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
+
 use std::thread;
-use std::time::Duration;
 use std::time::SystemTime;
 
 pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
@@ -106,7 +103,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 
         //合并片段
         if !param.no_combine {
-            combine::combine_clip(temp_path.as_str(), save_path.as_str());
+            combine::combine_clip(temp_path.as_str(), save_path.as_str()).unwrap();
         }
     };
     let handle = thread::spawn(one);
@@ -116,7 +113,6 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     Ok(())
 }
 async fn download_async(entity: M3u8Item::M3u8Entity){
-
     let clip_urls =  entity.clip_urls.clone();
     let temp_path = entity.temp_path.clone();
     let nd = entity.need_decode();
@@ -212,16 +208,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
     let abort_v:Vec<AbortHandle> = join_v.iter()
             .map(|j|j.abort_handle())
             .collect();
-    let temp_clone = temp_path.clone();
-    tokio::spawn(async move{
-        while config::is_normal(&temp_clone) {
-            tokio::time::sleep(Duration::from_millis(1000)).await;
-        }
-        println!("=====>停止任务执行, status: {:?}", config::get_status(&temp_clone));
-        abort_v.iter()
-            .filter(|a|!a.is_finished())
-            .for_each(|a|a.abort());
-    });
+    config::add_abort_handles(&temp_path, abort_v);
 
     let mut idx = 1;
     for j in join_v{
@@ -233,6 +220,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
     
     if err_clips.lock().unwrap().len() > 0{
         println!("以下片段出错没有下载完成: {:?}", err_clips.lock().unwrap());
+        config::set_signal(&entity.temp_path, Signal::Exception);
     }
     //TODO 正常下载完成时设置标记为end
     if config::is_normal(&temp_path){
