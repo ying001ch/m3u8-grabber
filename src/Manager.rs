@@ -87,7 +87,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     
     
     let entity = M3u8Item::M3u8Entity::from(&param)?;
-    config::add_task(&entity.temp_path, entity.clip_num())?; //使用片段临时路径 创建任务状态信息
+    config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
     let one = move ||{
         let temp_path = entity.temp_path.clone();
         let save_path = entity.save_path.clone();
@@ -135,14 +135,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
         let sem = semaphore.clone();
         let err_clone = Arc::clone(&err_clips);
         let handler = tokio::spawn(async move{
-            if config::is_abort(&temp_path_clone){
-                return;
-            }
             let permit = sem.acquire().await.unwrap();
-            //判断是否停止
-            if config::is_abort(&temp_path_clone){
-                return;
-            }
             let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
                 //文件已经存在，无需下载
@@ -155,10 +148,6 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             // println!("--> {}", down_url);
 
             let mut bytes = http_util::query_bytes_async(&down_url,0 as i32).await;
-            if config::is_abort(&temp_path_clone){
-                println!("收到停止信号，不再下载");
-                return;
-            }
             let mut err_num = 1;
             while let Err(err) = bytes {
                 println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);

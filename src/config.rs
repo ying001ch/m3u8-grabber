@@ -5,7 +5,7 @@ use anyhow::{Result, anyhow, bail};
 use tokio::{task::AbortHandle};
 use serde::Serialize;
 
-use crate::view::TaskView;
+use crate::{view::TaskView, M3u8Item::M3u8Entity};
 
 
 pub struct GlobalConfig{
@@ -36,14 +36,16 @@ struct TaskState{
     total: usize,
     finished: usize,
     state: Signal,
+    file_name: String,
     abort_handles: Vec<AbortHandle>,
     headers: Vec<(String,String)>,
 }
 impl TaskState {
-    fn new(hash: &str, total: usize) -> Self{
+    fn new(hash: &str, total: usize, file_name: &str) -> Self{
         let mut task = Self::default();
         task.hash = hash.to_owned();
         task.total = total;
+        task.file_name = file_name.to_owned();
 
         task
     }
@@ -94,7 +96,10 @@ pub fn get_task_view() -> Vec<TaskView> {
             TaskView { task_id: f.hash.clone(), 
                 err_msg: "".to_string(), // TODO 获取错误信息
                 status: f.state.clone(), //TODO 获取任务状态
-                progress: f.progress() 
+                progress: f.progress(),
+                file_name: f.file_name.clone(),
+                finished: f.finished,
+                total: f.total,
             }
         })
         .collect();
@@ -109,18 +114,20 @@ pub fn add_prog(task_hash: &str) {
 pub fn init_task_view(){
     *TASK_MAP.write().unwrap() = Some(HashMap::new());
 }
-pub fn add_task(task_hash: &str, clip_num: usize) -> Result<()>{
+pub fn add_task(entity: &M3u8Entity) -> Result<()>{
     let mut guard = TASK_MAP.write().unwrap();
     if guard.is_none(){
         panic!("=====taskView没有初始化!=====");
     }
+    let task_hash = &entity.temp_path;
+    let clip_num = entity.clip_num();
     if let Some(t) = guard.as_mut().unwrap().get(task_hash){
         if let Signal::Normal = t.state {
             bail!("任务正在运行，无需添加")
         }
     }
     guard.as_mut().unwrap()
-        .insert(task_hash.to_string(), TaskState::new(task_hash, clip_num));
+        .insert(task_hash.to_string(), TaskState::new(task_hash, clip_num, &entity.save_path));
     Ok(())
 }
 pub fn abort_task(hash: &str)->Result<&str>{

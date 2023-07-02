@@ -1,9 +1,9 @@
 <template>
     <el-row :gutter="5">
-      <el-col :span="4">
+      <!-- <el-col :span="4">
         <div class="grid-content ep-bg-purple"> &nbsp;</div>
-      </el-col>
-      <el-col :span="16">
+      </el-col> -->
+      <el-col :span="12">
         <el-container>
           <el-header><span class="header">M3u8下载器</span></el-header>
           <el-main>
@@ -67,7 +67,7 @@
               </el-row>
               <el-row :gutter="3">
                 <el-col :span="5" class="labal-col">
-                  <span class=""> 线程数量</span>
+                  <span class=""> 并行任务数</span>
                 </el-col>
                 <el-col :span="19">
                   <el-input placeholder="下载线程数" v-model.number="param.worker_num" type="number" clearable></el-input>
@@ -84,13 +84,6 @@
               <!-- 合并设置 -->
               只下载不合并<el-switch v-model="param.no_combine" />
             </div>
-            <!-- 进度条 -->
-            <el-progress v-for="(task,index) in tasks"
-                :text-inside="true" :stroke-width="30" :percentage="task.progress*100" 
-                :status="status_transfer(task.status)">
-              <span>任务{{ index+1 }} 已完成 {{(task.progress*100).toFixed(2)}}%</span>
-            </el-progress>
-            <!-- <el-progress type="circle" :percentage="percentage" :status="progress_status"/> -->
           </el-main>
           <el-footer>
             <el-button type="primary" @click="submitTask">开始下载</el-button>
@@ -99,8 +92,20 @@
           </el-footer>
         </el-container>
       </el-col>
-      <el-col :span="4">
-        <div class="grid-content ep-bg-purple"></div>
+      <el-col :span="12">
+        <div class="grid-content ep-bg-purple progress-container" >
+            <!-- 进度条 -->
+            <div v-for="(task,index) in tasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
+                @click="sel(task.task_id)">
+                <span>{{task.file_name }}</span> 
+                <span style="float: right;">{{task.finished }}/{{task.total }}</span>
+                <el-progress 
+                    :text-inside="true" :stroke-width="30" :percentage="task.progress*100" 
+                    :status="status_transfer(task.status)">
+                  <span>已完成 {{(task.progress*100).toFixed(2)}}%</span>
+                </el-progress>
+            </div>
+        </div>
       </el-col>
     </el-row>
 </template>
@@ -128,8 +133,7 @@ export default {
   name: 'App',
   data () {
     return {
-      progress: 0,
-      progress_status: '',
+      sel_id: -1, //选中的索引
       param: {
         address: '',
         save_path: './',
@@ -146,15 +150,34 @@ export default {
       },
       tasks: [
         // {
+        //   task_id: '123',
+        //   err_msg: '',
+        //   status: 'Exception',
+        //   progress: 0.35,
+        //   file_name: 'huluwa.mp4',
+        //   finished: '685',
+        //   total: '2023',
+        // },
+        // {
         //   task_id: '12',
         //   err_msg: '',
         //   status: 'Exception',
-        //   progress: 0.35
-        // }
+        //   progress: 0.35,
+        //   file_name: '葫芦兄弟.mp4',
+        //   finished: '685',
+        //   total: '2023',
+        // },
       ]
     }
   },
   methods:  {
+    sel: function(task_id){
+      if(this.sel_id == task_id){
+        this.sel_id = -1
+        return;
+      }
+      this.sel_id = task_id
+    },
     status_transfer: function(task_status){
       return map[task_status]
     },
@@ -163,9 +186,13 @@ export default {
         msgBox('没有正在运行的任务')
         return;
       }
-      console.log('暂停下载')
+      if(this.sel_id < 0){
+        msgBox('请先选中任务')
+        return;
+      }
+      console.log('暂停下载：task_id: ' + this.sel_id)
       //传参数要传成驼峰格式
-      invoke('pause', {taskHash: this.tasks[0].task_id})
+      invoke('pause', {taskHash: this.sel_id})
         .then((response) => {
           msgBox(response)
         })
@@ -268,5 +295,21 @@ function msgBox(msg){
 .grid-content {
   border-radius: 4px;
   min-height: 36px;
+}
+.progress-container{
+  padding-top: 85px;
+  position: relative;
+  height: 100%;
+}
+.progress_item{
+  padding-bottom: 5px;
+  padding-top: 5px;
+  border-bottom: 1px solid rgb(179, 170, 170);
+}
+.progress_item:hover{
+  background-color:rgba(195, 232, 254, 0.869);
+}
+.sel{
+  background-color:rgba(195, 232, 254, 0.869);
 }
 </style>
