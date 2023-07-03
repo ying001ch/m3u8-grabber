@@ -250,7 +250,7 @@ export default {
       this.param.task_type = 2;
       let pam = JSON.stringify(this.param)
       console.log('sub pam: '+pam)
-      invoke('combine', { paramStr: pam })
+      invoke('combine_cmd', { paramStr: pam })
         .then((response) => msgBox(response))
     }
   }
