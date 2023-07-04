@@ -27,6 +27,8 @@ fn test_json(){
 mod Test{
     use std::mem::discriminant;
     use std::num::ParseIntError;
+    use std::sync::Arc;
+    use std::time::Duration;
 
     use crate::config::Signal;
 
@@ -68,16 +70,23 @@ mod Test{
             println!("r2 = {:?}", r2);
         }
         
-        
+        let arc_lock = Arc::new(lock);
         { //写锁
-            let mut w = lock.write().unwrap();
-            *w = 90;
+            let clone_lock = arc_lock.clone();
+            std::thread::spawn(move ||{
+                let mut w = clone_lock.write().unwrap();
+                *w = 90;
+                std::thread::sleep(Duration::from_secs(5));
+                println!("===> 子线程释放锁")
+            });
+
+            std::thread::sleep(Duration::from_millis(500));
             
             //写锁 未释放时获取读锁会阻塞
-            // let r = lock.read().unwrap();
-            // println!("r1 = {:?}", r);
+            let r = arc_lock.read().unwrap();
+            println!("r1 = {:?}", r);
         }
-        println!("r = {:?}", lock.read().unwrap());
+        println!("r = {:?}", arc_lock.read().unwrap());
     }
 
 }
