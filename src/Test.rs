@@ -27,7 +27,13 @@ fn test_json(){
 mod Test{
     use std::mem::discriminant;
     use std::num::ParseIntError;
+    use std::ops::Deref;
     use std::sync::Arc;
+    use std::sync::Condvar;
+    use std::sync::OnceLock;
+    use std::sync::atomic::AtomicU32;
+    use std::sync::atomic::Ordering;
+    use std::thread;
     use std::time::Duration;
 
     use crate::config::Signal;
@@ -87,6 +93,38 @@ mod Test{
             println!("r1 = {:?}", r);
         }
         println!("r = {:?}", arc_lock.read().unwrap());
+    }
+    #[test]
+    fn test_atomic(){
+        let counter = Arc::new(AtomicU32::new(100));
+        let counter_c = counter.clone();
+        let joiner= thread::spawn(move ||{
+            for _ in 0..1000{
+                counter_c.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        for _ in 0..1000{
+            counter.fetch_add(1, Ordering::Relaxed);
+        }
+        joiner.join();
+
+        println!("atomic = {:?}", counter);
+        assert_eq!(counter.load(Ordering::Relaxed), 2100);
+    }
+    #[test]
+    fn test_lazy(){
+        static lock: OnceLock<i32> = std::sync::OnceLock::new();
+        let lock_ref = lock.get_or_init(||{
+            //初始化只会被执行一次
+            println!("初始化1");
+            99
+        });
+        let lock_ref_2 = lock.get_or_init(||{
+            println!("初始化2");
+            99
+        });
+        println!("lock_ref = {:?}", lock);
     }
 
 }

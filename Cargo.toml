@@ -24,6 +24,7 @@ block-modes = "0.8.1"
 bytes = "1.4.0"
 tokio = {version = "1.28.1", features = ["full"]}
 anyhow = { version = "1.0"}
+base64= { version = "0.21.0" }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.
