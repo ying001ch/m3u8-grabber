@@ -5,7 +5,7 @@ use anyhow::{Result, anyhow, bail};
 use tokio::{task::AbortHandle};
 use serde::Serialize;
 
-use crate::{view::TaskView, M3u8Item::M3u8Entity};
+use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 
 
 pub struct GlobalConfig{
@@ -72,8 +72,11 @@ pub fn get_work_num() -> usize {
 }
 //----------------------------------------------------------------
 pub fn set_proxys(ss: String) {
-    let mut a = GLOBAL_CONFIG.write().unwrap();
-    a.proxys = Some(ss);
+    {
+        let mut a = GLOBAL_CONFIG.write().unwrap();
+        a.proxys = Some(ss);
+    }
+    http_util::update_client();
 }
 pub fn get_proxys() -> String {
     GLOBAL_CONFIG.read().unwrap().proxys.clone().unwrap_or("".to_string())

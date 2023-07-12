@@ -65,10 +65,15 @@ fn validate_param(param: &DownParam)-> Result<()>{
 fn run(param: DownParam, async_task: bool) -> Result<()>{
     println!("Hello this is M3u8-Downloader by rust");
 
-    //设置代理和请求头
+    //设置代理 
     param.proxy.as_ref()
         .filter(|f|!f.is_empty())
-        .map(|p|config::set_proxys(p.to_string()));
+        .map(|p|config::set_proxys(p.to_string()))
+        .or_else(||{
+            config::set_proxys("".to_string());
+            None
+        });
+    //设置请求头
     param.headers.as_ref()
         .filter(|&f|!f.is_empty())
         .map(|h|{

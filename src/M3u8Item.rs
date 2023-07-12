@@ -106,7 +106,7 @@ impl M3u8Entity {
         } else {
             //1. 解析m3u8文件
             let m3u8_url = param.address.as_str();
-            content = http_util::query_text(m3u8_url);
+            content = http_util::query_text(m3u8_url)?;
         }
 
 

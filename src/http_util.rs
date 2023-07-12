@@ -1,10 +1,13 @@
+use anyhow::{Result, bail, anyhow};
 use bytes::Bytes;
-use reqwest::{blocking::{Client, Response}};
-use std::{env, io::{Read, Write}, time::Duration};
+use reqwest::blocking::{Client, Response};
+use std::{env, io::{Read, Write}, time::Duration, sync::{Mutex, Arc}};
 use crate::{str_util, config};
-use std::thread::Thread;
-use std::collections::HashMap;
 
+/// 静态变量
+static ASYNC_CLIENT: Mutex<Option<Arc<reqwest::Client>>> = Mutex::new(None);
+
+/// 方法
 
 pub fn main() {
     let args:Vec<String> = env::args().collect();
@@ -50,17 +53,38 @@ pub fn query_bytes(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, reqwest
         }
     }
 }
-pub fn query_text(url: &str) ->String {
+pub fn query_text(url: &str) -> Result<String> {
     let b = query_bytes(url,0);
     match b {
-        Ok(res) => String::from_utf8_lossy(&res).to_string(),
+        Ok(res) => Ok(String::from_utf8_lossy(&res).to_string()),
         Err(err) => {
             println!("{}", err);
-            panic!("query text failed!");
+            // bail!();
+            bail!("query text failed! err: {}",err)
         }
     }
 }
-fn get_client2(idx: i32)-> reqwest::Client{
+fn get_client2(idx: i32)-> Arc<reqwest::Client>{
+    let mut guard = ASYNC_CLIENT.lock().unwrap();
+    if guard.is_none() {
+        let mut builder = reqwest::Client::builder()
+            .timeout(Duration::from_secs(60));
+
+        // let mut builder = reqwest::blocking::Client::builder();
+        let p = get_proxy();
+        if p.len()>0 {
+            let proxy = reqwest::Proxy::all(p.as_str())
+                    .expect("socks proxy should be there");
+            builder = builder.proxy(proxy);
+        }
+        let cli = builder.build().expect("build clent failed.");
+        *guard = Some(Arc::new(cli));
+    }
+    guard.as_ref().map(|f|f.clone()).unwrap()
+    
+}
+pub fn update_client(){
+    let mut guard = ASYNC_CLIENT.lock().unwrap();
     let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(60));
 
@@ -72,7 +96,8 @@ fn get_client2(idx: i32)-> reqwest::Client{
         builder = builder.proxy(proxy);
     }
     let cli = builder.build().expect("build clent failed.");
-    cli
+    *guard = Some(Arc::new(cli));
+    println!("=========> 更新proxy成功： proxy:{}",p);
 }
 fn get_client(idx: i32)-> Client{
 
