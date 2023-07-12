@@ -126,5 +126,14 @@ mod Test{
         });
         println!("lock_ref = {:?}", lock);
     }
-
+    #[test]
+    fn test_tuple(){
+        // let (mut a, mut b) = (1, 2);
+        let mut a = 1;
+        let mut b = 2;
+        println!("a={},b={}", a, b);
+        //通过元组交换值
+        (a,b) = (b,a);
+        println!("a={},b={}", a, b);
+    }
 }
