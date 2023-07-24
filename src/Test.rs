@@ -36,6 +36,8 @@ mod Test{
     use std::thread;
     use std::time::Duration;
 
+    use tokio::runtime::Runtime;
+
     use crate::config::Signal;
 
     use super::DownParam;
@@ -135,5 +137,26 @@ mod Test{
         //通过元组交换值
         (a,b) = (b,a);
         println!("a={},b={}", a, b);
+    }
+    #[test]
+    fn test_oneshot(){
+        // 只有 没有内部值的枚举才能使用as 转换成整数
+        println!("signal idx = {:?}", Signal::Normal as usize);
+        println!("signal idx = {:?}", Signal::Pause as usize);
+
+        println!("discriminant(Normal) idx = {:?}", discriminant(&Signal::Normal));
+        println!("discriminant(Pause) idx = {:?}", discriminant(&Signal::Pause));
+
+        enum Testenum{
+            A,
+            B(i32),
+            C(f32)
+        }
+        println!("discriminant(A) idx = {:?}", discriminant(&Testenum::A));
+        println!("discriminant(B(10)) idx = {:?}", discriminant(&Testenum::B(10)));
+        println!("discriminant(B(20)) idx = {:?}", discriminant(&Testenum::B(20)));
+        println!("discriminant(C(20f32)) idx = {:?}", discriminant(&Testenum::C(20f32)));
+        println!("discriminant(C(40f32)) idx = {:?}", discriminant(&Testenum::C(40f32)));
+
     }
 }

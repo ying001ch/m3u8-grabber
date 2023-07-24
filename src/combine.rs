@@ -2,7 +2,8 @@ use std::{env, io::Write, process::{Command, Stdio}, string};
 
 use anyhow::{Result, Context, bail};
 
-pub fn combine_clip(clip_dir: &str, save_path: &str) -> Result<()>{
+/// 调用FFMMPEG合并视频片段
+pub fn combine_clip(clip_dir: &str, save_path: &str, async_task: bool) -> Result<()>{
     let dir_ex = std::fs::read_dir(clip_dir)
         .context(format!("clip_dir: {} not exists!", clip_dir))?;
 
@@ -63,16 +64,25 @@ pub fn combine_clip(clip_dir: &str, save_path: &str) -> Result<()>{
         stdin.write_all(b"y\r\n").expect("写入失败");
     });
     
-    let status = child.wait().unwrap();
-    println!("===>output status={}", status);
-    println!("===>output success={}", status.success());
-    
-    if status.success() {
-        println!("开始删除临时文件:");
-        std::fs::remove_dir_all(clip_dir).expect("删除临时文件失败！");
-        println!("删除临时文件完成！");
+    let clip_dir = clip_dir.to_owned();
+    let child_listener = move ||{
+        let status = child.wait()?;
+        println!("===>output status={}", status);
+        println!("===>output success={}", status.success());
+        
+        if status.success() {
+            println!("开始删除临时文件:");
+            std::fs::remove_dir_all(clip_dir).context("删除临时文件失败！")?;
+            println!("删除临时文件完成！");
+        }
+        Ok::<(),anyhow::Error>(())
+    };
+    if async_task {
+        std::thread::spawn(child_listener);
+        Ok(())
+    }else{
+        child_listener()
     }
-    Ok(())
 }
 
 fn get_output_name(save_path: &str) -> String {

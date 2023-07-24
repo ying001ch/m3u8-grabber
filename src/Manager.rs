@@ -31,17 +31,10 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
         //下载任务
         config::TASK_DOWN => run(param, async_task),
         //合并任务
-        config::TASK_COM => if async_task{
-                thread::spawn(move||combine::combine_clip(
-                    param.combine_dir.unwrap().as_str(),
-                    &param.save_path.as_str()).unwrap()
-                    );
-                    Ok(())
-                }else{
-                    combine::combine_clip(
-                    param.combine_dir.unwrap().as_str(),
-                    &param.save_path.as_str())
-                },
+        config::TASK_COM => combine::combine_clip(
+            param.combine_dir.unwrap().as_str(),
+            &param.save_path.as_str(),
+            async_task),
         _=> bail!("任务类型不对"),
     }
 }
@@ -111,12 +104,13 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 
         //合并片段
         if !param.no_combine {
-            combine::combine_clip(temp_path.as_str(), save_path.as_str()).unwrap();
+            combine::combine_clip(temp_path.as_str(), save_path.as_str(),false).unwrap();
         }
     };
-    let handle = thread::spawn(one);
-    if !async_task {
-        handle.join().map_err(|e|anyhow!(format!("{:?}",e)))?;
+    if async_task{
+        thread::spawn(one);
+    }else{
+        one();
     }
     Ok(())
 }
@@ -140,12 +134,11 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
         let sem = semaphore.clone();
         let err_clone = Arc::clone(&err_clips);
         let handler = tokio::spawn(async move{
-            let permit = sem.acquire().await.unwrap();
+            let _permit = sem.acquire().await.unwrap();
             let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
                 //文件已经存在，无需下载
                 config::add_prog(&temp_path_clone);
-                drop(permit);
                 return;
             }
 
@@ -158,7 +151,6 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
                 println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
                 if err_num >=5 {
                     err_clone.lock().unwrap().push(idx);
-                    drop(permit);
                     return;
                 }
                 // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
@@ -167,15 +159,14 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             }
             println!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
             //写入文件
-            let temp;
+            let origin_bytes;
             let result: &[u8] = if nd {
                 let res = aes_util::decrypt(bytes.as_ref().unwrap(), &key, &iv);
                 if let Ok(v) = res{
-                    temp = v;
-                    &temp
+                    origin_bytes = v;
+                    &origin_bytes
                 }else{
                     println!("片段({}) Decode ERROR 解密过程出错：{}", idx, res.unwrap_err());
-                    drop(permit);
                     return;
                 }
             } else {
@@ -189,7 +180,6 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             }else{
                 config::add_prog(&temp_path_clone);
             }
-            drop(permit);
         });
         join_v.push(handler);
         //限制并发量的一种方法，分组执行，有一定效果
