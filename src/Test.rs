@@ -159,4 +159,12 @@ mod Test{
         println!("discriminant(C(40f32)) idx = {:?}", discriminant(&Testenum::C(40f32)));
 
     }
+    #[test]
+    fn test_str(){
+        let s = "abba";
+        println!("index b is {:?}", s.find("b"));
+        println!("index a is {:?}", s.find("a"));
+        println!("index b is {:?}", s.rfind("b"));
+        println!("index a is {:?}", s.rfind("a"));
+    }
 }

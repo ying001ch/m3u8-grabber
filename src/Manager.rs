@@ -78,6 +78,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
                     (k.trim().to_string(),v.trim().to_string())
                 })
                 .collect();
+            println!("request headers: {:?}",v);
             config::set_headers(v);
         });
     //set workerNum
