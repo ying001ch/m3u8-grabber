@@ -30,6 +30,7 @@ mod Test{
     use std::ops::Deref;
     use std::sync::Arc;
     use std::sync::Condvar;
+    use std::sync::Mutex;
     use std::sync::OnceLock;
     use std::sync::atomic::AtomicU32;
     use std::sync::atomic::Ordering;
@@ -159,12 +160,33 @@ mod Test{
         println!("discriminant(C(40f32)) idx = {:?}", discriminant(&Testenum::C(40f32)));
 
     }
+    /// Condvar用来主动阻塞和 唤醒线程
+    /// Condvar.wait(guard) 阻塞线程
+    /// Condvar.notify_all(guard) 唤醒等待这个条件的线程
+    /// 可以用来实现CountDownLatch门闩工具
     #[test]
-    fn test_str(){
-        let s = "abba";
-        println!("index b is {:?}", s.find("b"));
-        println!("index a is {:?}", s.find("a"));
-        println!("index b is {:?}", s.rfind("b"));
-        println!("index a is {:?}", s.rfind("a"));
+    fn test_condvar(){
+        println!("begin....");
+        let cond = std::sync::Condvar::new();
+        let b = false;
+
+        let pair: Arc<(Mutex<bool>, Condvar)> = Arc::new((Mutex::new(b),cond));
+        let p2 = pair.clone();
+        std::thread::spawn(move ||{
+            println!("进入子线程");
+            thread::sleep(Duration::from_secs(5));
+            let mut guard = p2.0.lock().unwrap();
+            *guard = true;
+            p2.1.notify_all();
+            println!("释放锁");
+        });
+
+        
+        let mut guard = pair.0.lock().unwrap();
+        while !*guard {
+            guard = pair.1.wait(guard).unwrap();
+            println!("重新获取锁");
+        }
+        println!("program end... guard:{}", *guard);
     }
 }
