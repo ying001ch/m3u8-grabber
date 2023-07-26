@@ -130,20 +130,20 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
     for idx in 0..clip_urls.len() {
         let clip_clone = clip_urls[idx].clone();
         // let clip_clone = clip.clone();
-        let prefix_clone = prefix.to_string();
-        let temp_path_clone = temp_path.clone();
+        let prefix = prefix.to_string();
+        let temp_path = temp_path.clone();
         let sem = semaphore.clone();
-        let err_clone = Arc::clone(&err_clips);
+        let err_clips = Arc::clone(&err_clips);
         let handler = tokio::spawn(async move{
             let _permit = sem.acquire().await.unwrap();
-            let down_file_path = format!("{}/{}.ts", temp_path_clone, make_name(idx as i32 +1));
+            let down_file_path = format!("{}/{}.ts", temp_path, make_name(idx as i32 +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
                 //文件已经存在，无需下载
-                config::add_prog(&temp_path_clone);
+                config::add_prog(&temp_path);
                 return;
             }
 
-            let down_url = prefix_clone.to_string() + clip_clone.as_str();
+            let down_url = prefix.to_string() + clip_clone.as_str();
             // println!("--> {}", down_url);
 
             let mut bytes = http_util::query_bytes_async(&down_url,0 as i32).await;
@@ -151,7 +151,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             while let Err(err) = bytes {
                 println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
                 if err_num >=5 {
-                    err_clone.lock().unwrap().push(idx);
+                    err_clips.lock().unwrap().push(idx);
                     return;
                 }
                 // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
@@ -177,9 +177,9 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
                     .await;
             if let Err(e) = res{
                 println!("写入片段[{}]失败， err={}", idx + 1, e);
-                err_clone.lock().unwrap().push(idx);
+                err_clips.lock().unwrap().push(idx);
             }else{
-                config::add_prog(&temp_path_clone);
+                config::add_prog(&temp_path);
             }
         });
         join_v.push(handler);
