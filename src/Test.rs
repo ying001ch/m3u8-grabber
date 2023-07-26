@@ -189,4 +189,54 @@ mod Test{
         }
         println!("program end... guard:{}", *guard);
     }
+    #[test]
+    fn test_pattern(){
+        let a=(1,2);
+        match a{
+            (x,y) if x >=1 =>{
+
+            },
+            _=>{}
+        }
+        struct S{
+            num: i32
+        };
+        /// @匹配 只能用于结构体，限定
+        /// 成员变量的值，相当于简化if语句
+        let s = S{num:10};
+        match s{
+            S{num: num2 @0..=3} =>{
+                println!("num={}",num2);
+            }
+            _=>{}
+        }
+
+        /// 为常量绑定一个值(Rust 1.53 新增)
+        match 1 {
+            n @ 1=>{}
+            n @ 2=>{}
+            num @ (3 | 4) => {
+                println!("{}", num);
+            }
+            _ => {}
+        }
+        ///前绑定后解构(Rust 1.56 新增)
+        #[derive(Debug)]
+        struct Point {
+            x: i32,
+            y: i32,
+        }
+        /// 绑定新变量 `p`，同时对 `Point` 进行解构
+        let p @ Point {x: px, y: py } = Point {x: 10, y: 23};
+        println!("x: {}, y: {}", px, py);
+        println!("{:?}", p);
+
+
+        let point = Point {x: 10, y: 5};
+        if let p @ Point {x: 10, y} = point {
+            println!("x is 10 and y is {} in {:?}", y, p);
+        } else {
+            println!("x was not 10 :(");
+        }
+    }
 }
