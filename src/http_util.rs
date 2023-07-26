@@ -15,7 +15,7 @@ pub fn main() {
     query_bytes("http://localhost:8080/hs",0);
     println!("end..");
 }
-pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, String> {
+pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Bytes, String> {
     let client = get_client2(0);
     let mut req_builder = client.get(url);
     let head = get_headers();
@@ -28,10 +28,8 @@ pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Box<Byt
             if !res.status().is_success() {
                 return Err(format!("=====> 请求异常，status: {}", res.status()));
             }
-            match res.bytes().await {
-                Ok(b)=>Ok(Box::new(b)),
-                Err(e)=> Err(e.to_string()),
-            }
+            res.bytes().await
+                .map_err(|e|e.to_string())
         },
         Err(err) => {
             Err(err.to_string())
