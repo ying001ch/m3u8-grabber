@@ -117,12 +117,13 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 }
 ///异步下载方法
 async fn download_async(entity: M3u8Item::M3u8Entity){
-    let clip_urls =  entity.clip_urls.clone();
-    let temp_path = entity.temp_path.clone();
+    let clip_urls =  &entity.clip_urls;
+    let temp_path = &entity.temp_path;
     let nd = entity.need_decode();
     let key = entity.key;
     let iv = entity.iv;
-    let prefix = entity.url_prefix.as_ref().unwrap().clone();
+
+    let prefix = entity.url_prefix.as_ref().unwrap();
     let mut join_v = vec![];
     let semaphore = Arc::new(Semaphore::new(config::get_work_num()));
     let err_vec: Vec<usize> = vec![];
