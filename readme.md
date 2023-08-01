@@ -1,94 +1,59 @@
-# 0. 为什么要做
+# 0. 开始
 
-偶然间看到了 Rust 觉得这个语言挺有意思，就想着学来玩儿一下，做个东西练练手。
-
-- 为什么要做M3u8下载器？
-
-现在很多视频网站的视频都是m3u8的，想下载下来看，虽然市面上有很多很强大的下载器，如IDM 迅雷、XDM等，他们都做得很出色，但是因为种种原因，有些文件是主动不提供下载的。M3u8解析起来也比较简单，正好适合 魔域时间写着玩 也是作为练习吧！
+偶然间看到了 Rust 觉得这个语言觉得很有意思，做个东西练练手。
 
 
 
-# 1. 安装
+很多视频网站的视频都是m3u8格式的，想下载下来看，虽然市面上有很多很强大的下载器，如IDM、迅雷、XDM等，他们都做得很出色，但是因为种种原因，有些文件是主动不提供下载的。M3u8解析起来也比较简单，就作为Rust语言的练习
 
-```rust
+
+
+此项目基于Tauri和原命令行项目包装而成，也支持在终端直接使用命令行运行。命令行项目地址
+
+Github: https://github.com/ying001ch/m3u8-downloader
+
+Gitee: https://gitee.com/ying001ch/m3u8-downloader
+
+# 支持功能
+
+1. 使用地址下载
+2. 使用m3u8文件下载
+3. 指定请求头
+4. 指定解密key
+5. 使用http代理
+6. 指定并行任务数
+7. 合并已下载的视频片段（调用FFMPEG）
+8. 显示进度条和 已下载/总片段 数量
+9. 支持暂停和恢复
+
+
+
+# 编译安装
+
+编译前端代码
+
+```shell
+# 先进入前端目录
+cd m3u8front3/
+# 安装依赖
+npm install
+# 编译代码
+npm run build
+```
+
+然后回到根目录，编译rust后端部分
+
+```shell
+# 回到项目根目录
+cd {project_root}
+# 编译rust部分
 cargo build --release
 ```
 
-- 合并视频片段使用了 FFMPEG，需要事先下载好并配置环境变量 `FFMPEG_PATH`
+合并视频片段使用FFMPEG，需要事先下载并且设置环境变量 `FFMPEG_PATH`
 
 ```shell
 FFMPEG_PATH="/ffmpeg/bin"
 ```
-
-
-
-# 2. 使用
-
-- 通过m3u8下载视频且合并片段
-
-```shell
-//   --output= 视频片段合并后的文件位置
-./m3u8-downloader http://m3u8.address  --output=download_name.mp4
-```
-
-> 合并后的文件会放在在当前目录，名称可以不指定默认为 output.mp4
-
-- 在某些情况下 通过地址无法直接下载m3u8文件，可以手动抓取m3u8内容保存成文件再下载
-
-```shell
-./m3u8-downloader http://m3u8.address --file="./m3u8_file_path"
-```
-
-> 由于m3u8内容里面往往只有视频路径最后一截，所以即使有了m3u8文件还是要指定 m3u8地址
-
-- 合并已存在的视频片段
-
-```shell
-// --output可省略 使用默认名称
-./m3u8-downloader --combine="./video_clip_dir" --output=download_name.mp4
-```
-
-> 会根据视频名称进行排序，只会添加 名称里包含 `.ts` 的文件
-
-- 指定临时目录 以存放下载的视频片段，下载合并完毕之后会删除。不指定默认使用时间戳
-
-```shell
-// 任意位置添加参数
-./m3u8-downloader http://m3u8.address --temp="temp_path"
-```
-
-- 使用 Http 代理
-
-```shell
-// 任意位置添加参数即可
---proxy="http://127.0.0.1:1081"
-```
-
-- 设置Http Header
-
-```shell
-// 任意位置添加参数
---H="refer:https://yourAddress" --H="origin: http://yourOrigin"
-```
-
-- 设置key
-
-```shell
-# 任意位置添加参数，字符串形式
---key="D2BAfb82c3GAf4EA"
-```
-
-- 设置下载任务的线程数
-
-```shell
---worker=4  // 手动指定线程数，默认为4
-```
-
-- 只下载片段，不合并
-```
---noCombine //添加参数
-```
-
-# 3. 下载失败
-
-由于网络等原因，有时会下载失败。可以重新下载，只要指定上一次下载所使用的临时目录，已经下载好的文件会跳过，不会重复下载
+# 运行截图
+![Snipaste_2023-08-01_09-03-26](docs/running.png)
