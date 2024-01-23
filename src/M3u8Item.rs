@@ -118,7 +118,7 @@ impl M3u8Entity {
             if li.contains("EXT-X-KEY"){
                 // key method iv
                 parse_key(&mut entity, li);
-            }else if li.contains(".ts") {
+            }else if li.contains(".ts")|| li.contains(".jpeg") ||li.contains(".jpg") {
                 entity.clip_urls.push(li.to_string());
             }
         }
