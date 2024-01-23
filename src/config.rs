@@ -173,5 +173,5 @@ fn predict_status(task_hash: &str, signal: Signal) -> bool {
     .map(|f|{
             discriminant(&signal) == discriminant(&f.state)
         })
-        .unwrap_or(true)
+        .unwrap_or(false)
 }

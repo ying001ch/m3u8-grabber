@@ -30,11 +30,14 @@ mod Test{
     use std::ops::Deref;
     use std::sync::Arc;
     use std::sync::Condvar;
+    use std::sync::Mutex;
     use std::sync::OnceLock;
     use std::sync::atomic::AtomicU32;
     use std::sync::atomic::Ordering;
     use std::thread;
     use std::time::Duration;
+
+    use tokio::runtime::Runtime;
 
     use crate::config::Signal;
 
@@ -135,5 +138,105 @@ mod Test{
         //通过元组交换值
         (a,b) = (b,a);
         println!("a={},b={}", a, b);
+    }
+    #[test]
+    fn test_oneshot(){
+        // 只有 没有内部值的枚举才能使用as 转换成整数
+        println!("signal idx = {:?}", Signal::Normal as usize);
+        println!("signal idx = {:?}", Signal::Pause as usize);
+
+        println!("discriminant(Normal) idx = {:?}", discriminant(&Signal::Normal));
+        println!("discriminant(Pause) idx = {:?}", discriminant(&Signal::Pause));
+
+        enum Testenum{
+            A,
+            B(i32),
+            C(f32)
+        }
+        println!("discriminant(A) idx = {:?}", discriminant(&Testenum::A));
+        println!("discriminant(B(10)) idx = {:?}", discriminant(&Testenum::B(10)));
+        println!("discriminant(B(20)) idx = {:?}", discriminant(&Testenum::B(20)));
+        println!("discriminant(C(20f32)) idx = {:?}", discriminant(&Testenum::C(20f32)));
+        println!("discriminant(C(40f32)) idx = {:?}", discriminant(&Testenum::C(40f32)));
+
+    }
+    /// Condvar用来主动阻塞和 唤醒线程
+    /// Condvar.wait(guard) 阻塞线程
+    /// Condvar.notify_all(guard) 唤醒等待这个条件的线程
+    /// 可以用来实现CountDownLatch门闩工具
+    #[test]
+    fn test_condvar(){
+        println!("begin....");
+        let cond = std::sync::Condvar::new();
+        let b = false;
+
+        let pair: Arc<(Mutex<bool>, Condvar)> = Arc::new((Mutex::new(b),cond));
+        let p2 = pair.clone();
+        std::thread::spawn(move ||{
+            println!("进入子线程");
+            thread::sleep(Duration::from_secs(5));
+            let mut guard = p2.0.lock().unwrap();
+            *guard = true;
+            p2.1.notify_all();
+            println!("释放锁");
+        });
+
+        
+        let mut guard = pair.0.lock().unwrap();
+        while !*guard {
+            guard = pair.1.wait(guard).unwrap();
+            println!("重新获取锁");
+        }
+        println!("program end... guard:{}", *guard);
+    }
+    #[test]
+    fn test_pattern(){
+        let a=(1,2);
+        match a{
+            (x,y) if x >=1 =>{
+
+            },
+            _=>{}
+        }
+        struct S{
+            num: i32
+        };
+        /// @匹配 只能用于结构体，限定
+        /// 成员变量的值，相当于简化if语句
+        let s = S{num:10};
+        match s{
+            S{num: num2 @0..=3} =>{
+                println!("num={}",num2);
+            }
+            _=>{}
+        }
+
+        /// 为常量绑定一个值(Rust 1.53 新增)
+        match 1 {
+            n @ 1=>{}
+            n @ 2=>{}
+            num @ (3 | 4) => {
+                println!("{}", num);
+            }
+            _ => {}
+        }
+        ///前绑定后解构(Rust 1.56 新增)
+        #[derive(Debug)]
+        struct Point {
+            x: i32,
+            y: i32,
+        }
+        /// 绑定新变量 `p`，同时对 `Point` 进行解构
+        let p @ Point {x: px, y: py } = Point {x: 10, y: 23};
+        println!("x: {}, y: {}", px, py);
+        println!("{:?}", p);
+
+
+        let point = Point {x: 10, y: 5};
+        if let p @ Point {x: 10, y} = point {
+            println!("x is 10 and y is {} in {:?}", y, p);
+        } else {
+            println!("x was not 10 :(");
+        }
     }
 }
