@@ -2,6 +2,7 @@ use core::panic;
 use std::{sync::RwLock,collections::HashMap, mem::discriminant};
 
 use anyhow::{Result, anyhow, bail};
+use lazy_static::lazy_static;
 use tokio::{task::AbortHandle};
 use serde::Serialize;
 
@@ -22,7 +23,7 @@ static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
 pub const TASK_DOWN: usize = 1; //下载视频
 pub const TASK_COM: usize = 2;  //合并视频
 
-#[derive(Debug, Clone, Default,Serialize)]
+#[derive(Debug, Clone, PartialEq, Default,Serialize)]
 pub enum Signal {
     #[default] //设置枚举默认值
     Normal,
@@ -53,7 +54,9 @@ impl TaskState {
         self.finished as f64 / self.total as f64
     }
 }
-static TASK_MAP:RwLock<Option<HashMap<String,TaskState>>> = RwLock::new(None);
+lazy_static! {
+    static ref TASK_MAP:RwLock<HashMap<String,TaskState>> = RwLock::new(HashMap::new());
+}
 
 //----------------------------------------------------------------
 pub fn set_work_num(work_num: usize) {
@@ -91,10 +94,7 @@ pub fn get_headers() -> Vec<(String,String)> {
 }
 pub fn get_task_view() -> Vec<TaskView> {
     let guard = TASK_MAP.read().unwrap();
-    if guard.is_none(){
-        return vec![];
-    }
-    let views:Vec<TaskView> = guard.as_ref().unwrap().values()
+    let views:Vec<TaskView> = guard.values()
         .map(|f|{
             TaskView { task_id: f.hash.clone(), 
                 err_msg: "".to_string(), // TODO 获取错误信息
@@ -109,32 +109,25 @@ pub fn get_task_view() -> Vec<TaskView> {
     views
 }
 pub fn add_prog(task_hash: &str) {
-    TASK_MAP.write().unwrap().as_mut().unwrap()
+    TASK_MAP.write().unwrap()
         .get_mut(task_hash)
         .map(|t|t.finished += 1);
 }
 //----------------------------------------------------------------
-pub fn init_task_view(){
-    *TASK_MAP.write().unwrap() = Some(HashMap::new());
-}
 pub fn add_task(entity: &M3u8Entity) -> Result<()>{
     let mut guard = TASK_MAP.write().unwrap();
-    if guard.is_none(){
-        panic!("=====taskView没有初始化!=====");
-    }
     let task_hash = &entity.temp_path;
     let clip_num = entity.clip_num();
-    if let Some(t) = guard.as_mut().unwrap().get(task_hash){
+    if let Some(t) = guard.get(task_hash){
         if let Signal::Normal = t.state {
             bail!("任务正在运行，无需添加")
         }
     }
-    guard.as_mut().unwrap()
-        .insert(task_hash.to_string(), TaskState::new(task_hash, clip_num, &entity.save_path));
+    guard.insert(task_hash.to_string(), TaskState::new(task_hash, clip_num, &entity.save_path));
     Ok(())
 }
 pub fn abort_task(hash: &str)->Result<&str>{
-    TASK_MAP.read().unwrap().as_ref().unwrap().get(hash)
+    TASK_MAP.read().unwrap().get(hash)
         .map(|t|{
             t.abort_handles.iter()
                 .filter(|h|!h.is_finished())
@@ -143,17 +136,13 @@ pub fn abort_task(hash: &str)->Result<&str>{
         }).ok_or(anyhow!("停止任务失败"))
 }
 pub fn add_abort_handles(task_hash:&str, handles: Vec<AbortHandle>){
-    TASK_MAP.write().unwrap().as_mut().unwrap()
+    TASK_MAP.write().unwrap()
         .get_mut(task_hash)
         .map(|t|t.abort_handles = handles);
 }
 pub fn set_signal(task_hash: &str, ss: Signal) {
     let mut guard = TASK_MAP.write().unwrap();
-    if guard.is_none(){
-        panic!("=====taskView没有初始化!=====");
-    }
-    guard.as_mut().unwrap()
-        .get_mut(task_hash)
+    guard.get_mut(task_hash)
         .map(|f|f.state = ss);
 }
 pub fn is_end(task_hash: &str) -> bool{
@@ -166,12 +155,12 @@ pub fn is_normal(task_hash: &str) -> bool {
     predict_status(task_hash, Signal::Normal)
 }
 pub fn get_status(task_hash: &str) -> Option<Signal> {
-    TASK_MAP.read().unwrap().as_ref().unwrap().get(task_hash).map(|f|f.state.clone())
+    TASK_MAP.read().unwrap().get(task_hash).map(|f|f.state.clone())
 }
 fn predict_status(task_hash: &str, signal: Signal) -> bool {
-    TASK_MAP.read().unwrap().as_ref().unwrap().get(task_hash)
+    TASK_MAP.read().unwrap().get(task_hash)
     .map(|f|{
-            discriminant(&signal) == discriminant(&f.state)
+            signal == f.state
         })
         .unwrap_or(false)
 }
