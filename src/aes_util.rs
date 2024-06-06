@@ -29,10 +29,10 @@ fn test_decrypt(){
     use base64::{Engine as _, alphabet, engine::{self, general_purpose}};
 
     let content = std::fs::read(r"D:\Kitchen\Repository\tauri\crawler\response.ts").unwrap();
-    let key = M3u8Item::hex2_byte("aebae151fbaed00fb50be634d850b7b0");
+    let key = M3u8Item::hex2_byte("aebae151fbaed00fb50be634d850b7b0").unwrap();
     //base64格式的密钥
     // let key =  general_purpose::STANDARD.decode("rrrhUfuu0A+1C+Y02FC3sA==").unwrap();
-    let iv  = M3u8Item::hex2_byte("0x00000000000000000000000000000000");
+    let iv  = M3u8Item::hex2_byte("0x00000000000000000000000000000000").unwrap();
 
     println!("key: {} iv: {}",key.len(),iv.len());
     println!("file len: {} mod(16):{}", content.len(), content.len()%16);

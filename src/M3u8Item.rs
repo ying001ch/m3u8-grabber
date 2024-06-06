@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::hash_map::DefaultHasher;
 use std::env;
 use std::error::Error;
@@ -8,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use super::http_util;
 use crate::{str_util};
 use crate::config;
-use anyhow::{Result, bail, Context};
+use anyhow::{anyhow, bail, Context, Ok, Result};
 use serde::{Serialize, Deserialize};
 
 //下载任务 参数
@@ -174,16 +175,10 @@ impl M3u8Entity {
             return Ok(());
         }
 
-        let pr = param.key_str.as_ref();
-        if pr.filter(|f|!f.is_empty()).is_some() {
-            let bar = pr.unwrap().to_string().into_bytes();
-            let mut k = [0u8;16];
-            for i in 0..k.len(){
-                k[i] = bar[i];
-            }
-
-            self.key = k;
-            println!("key_bytes={:?}", self.key);
+        if let Some(ref s) = param.key_str {
+            self.key = hex2_byte(s).map_err(|e: anyhow::Error|{
+                anyhow!(format!("key_str 解析错误: {}", e))
+            })?;
             return Ok(());
         }
 
@@ -243,14 +238,17 @@ fn parse_key(mm: &mut M3u8Entity, line: &str) {
         }else if entry.starts_with("URI") {
             mm.key_url = val[1..val.len()-1].to_string();
         }else if entry.starts_with("IV") {
-            mm.iv = hex2_byte(val);
+            mm.iv = hex2_byte(val).unwrap();
         }
     }
 }
 
-pub fn hex2_byte(mut val: & str) -> [u8; 16] {
+pub fn hex2_byte(mut val: & str) -> Result<[u8; 16]> {
     if val.starts_with("0x") {
         val = &val[2..];
+    }
+    if val.len() != 32{
+        bail!("hex2_byte: len != 16 val: {}", val);
     }
     let nval = val.to_lowercase();
 
@@ -258,11 +256,11 @@ pub fn hex2_byte(mut val: & str) -> [u8; 16] {
     let mut idx = 0;
     let mut bytes = [0u8; 16];
     while idx+2 <= length {
-        bytes[idx/2] = u8::from_str_radix(&nval[idx..idx+2], 16).unwrap();
+        bytes[idx/2] = u8::from_str_radix(&nval[idx..idx+2], 16)?;
         idx += 2;
     }
 
-    return bytes;
+    return Ok(bytes);
 }
 fn cal_hash(input : &str) -> String{
     let mut hasher = DefaultHasher::new();

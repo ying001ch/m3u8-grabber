@@ -9,19 +9,26 @@ use serde::Serialize;
 use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 
 
+/// 全局配置存储
+static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
+    work_num: 8,
+    proxys: None,
+    headers: vec![],
+});
+lazy_static! {
+    /// 任务集合
+    static ref TASK_MAP:RwLock<HashMap<String,TaskState>> = RwLock::new(HashMap::new());
+}
+
+pub const TASK_DOWN: usize = 1; //下载视频
+pub const TASK_COM: usize = 2;  //合并视频
+
+
 pub struct GlobalConfig{
     work_num: usize,
     proxys: Option<String>,
     headers: Vec<(String,String)>,
 }
-//TODO 全局配置存储
-static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
-    work_num: 2,
-    proxys: None,
-    headers: vec![],
-});
-pub const TASK_DOWN: usize = 1; //下载视频
-pub const TASK_COM: usize = 2;  //合并视频
 
 #[derive(Debug, Clone, PartialEq, Default,Serialize)]
 pub enum Signal {
@@ -54,10 +61,6 @@ impl TaskState {
         self.finished as f64 / self.total as f64
     }
 }
-lazy_static! {
-    static ref TASK_MAP:RwLock<HashMap<String,TaskState>> = RwLock::new(HashMap::new());
-}
-
 //----------------------------------------------------------------
 pub fn set_work_num(work_num: usize) {
     let a = GLOBAL_CONFIG.write();

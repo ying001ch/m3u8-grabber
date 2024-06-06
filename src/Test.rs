@@ -47,7 +47,7 @@ mod Test{
     fn test_hex_parse() {
         let s = "0x1f58ab9c1f58ab9c1f58ab9c1f58ab98";
         //1.解析字符方式 每两位转换为一个u8
-        let us = M3u8Item::hex2_byte(s);  
+        let us = M3u8Item::hex2_byte(s).unwrap(); 
         
         //2.先整体转换成u128 再位运算
         let mut t = u128::from_str_radix(&s[2..], 16).unwrap();
