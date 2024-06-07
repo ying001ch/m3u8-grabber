@@ -61,7 +61,7 @@ impl DownParam {
             }
         });
         if param.worker_num <= 0 {
-            param.worker_num = 4;
+            param.worker_num = 8;
         }
         println!("===>param : {:?}", param);
         param

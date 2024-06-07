@@ -2,17 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{vec};
+use M3u8_Grabber::*;
 use M3u8Item::{DownParam};
 
-mod Manager;
-mod http_util;
-mod M3u8Item;
-mod aes_util;
-mod combine;
-mod str_util;
-mod config;
 mod Test;
-mod view;
 mod command;
 
 // #[tokio::main]
@@ -25,9 +18,4 @@ fn main() {
   }
   //启动 Tauri GUI
   command::start_tauri();
-}
-
-fn use_cmd() -> bool {
-  let args:Vec<String> = std::env::args().collect();
-  args.len() > 1 && (args[1].starts_with("http") || args[1].contains("--combine"))
 }

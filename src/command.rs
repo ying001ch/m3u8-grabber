@@ -1,4 +1,4 @@
-/// tauri命令集合
+//! tauri命令集合
 
 
 use anyhow::{Result};
