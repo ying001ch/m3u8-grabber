@@ -13,7 +13,6 @@ use crate::config::Signal;
 use crate::http_util;
 use crate::M3u8Item;
 use crate::M3u8Item::DownParam;
-use crate::str_util;
 use crate::config;
 use std::io::Error;
 use std::io::Write;
@@ -25,7 +24,7 @@ use std::time::SystemTime;
 
 /// 决定任务是 异步还是同步，合并文件还是下载文件
 pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
-    //TODO 校验参数
+    // 校验参数
     validate_param(&param)?;
     match param.task_type {
         //下载任务
@@ -71,14 +70,20 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
         .filter(|&f|!f.is_empty())
         .map(|h|{
             let v = h.split(";")
-                .map(|e|{
-                    let idx = str_util::index_of(':', e) as usize;
-                    let k = &e[0..idx];
-                    let v = &e[idx+1..e.len()];
-                    (k.trim().to_string(),v.trim().to_string())
+                .map(|h|{
+                    match h.find(':') {
+                        Some(idx) => {
+                            let k = &h[0..idx];
+                            let v = &h[idx+1..h.len()];
+                            (k.trim().to_string(),v.trim().to_string())
+                        },
+                        None => {
+                            (h.trim().to_string(),String::new())
+                        }
+                    }
                 })
                 .collect();
-            println!("request headers: {:?}",v);
+            println!("headers is :{:?}", v);
             config::set_headers(v);
         });
     //set workerNum
@@ -92,7 +97,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
         let save_path = entity.save_path.clone();
         let st = SystemTime::now(); //计时开始
         //手动创建了运行时，就可以不再使用main方法上的注解
-        tokio::runtime::Runtime::new().unwrap()
+        let all_success = tokio::runtime::Runtime::new().unwrap()
                 .block_on(download_async(entity));
         let spend_time = st.elapsed().unwrap().as_secs();
 
@@ -101,10 +106,10 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
             println!("--->下载暂停");
             return ;
         }
-        println!("下载完毕！总耗时：{}s no_combine:{}", spend_time, param.no_combine);
+        println!("下载完毕！总耗时：{}s no_combine:{} all_success:{}", spend_time, param.no_combine, all_success);
 
         //合并片段
-        if !param.no_combine {
+        if all_success && !param.no_combine {
             combine::combine_clip(temp_path.as_str(), save_path.as_str(),false).unwrap();
         }
     };
@@ -116,7 +121,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     Ok(())
 }
 ///异步下载方法
-async fn download_async(entity: M3u8Item::M3u8Entity){
+async fn download_async(entity: M3u8Item::M3u8Entity) -> bool {
     let clip_urls =  &entity.clip_urls;
     let temp_path = &entity.temp_path;
     let nd = entity.need_decode();
@@ -137,7 +142,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
         let err_clips = Arc::clone(&err_clips);
         let handler = tokio::spawn(async move{
             let _permit = sem.acquire().await.unwrap();
-            let down_file_path = format!("{}/{}.ts", temp_path, make_name(idx as i32 +1));
+            let down_file_path = format!("{}/{}.ts", temp_path, make_name(idx +1));
             if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
                 //文件已经存在，无需下载
                 config::add_prog(&temp_path);
@@ -147,7 +152,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
             let down_url = prefix.to_string() + clip_clone.as_str();
             // println!("--> {}", down_url);
 
-            let mut bytes = http_util::query_bytes_async(&down_url,0 as i32).await;
+            let mut bytes = http_util::query_bytes_async(&down_url, 0i32).await;
             let mut err_num = 1;
             while let Err(err) = bytes {
                 println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
@@ -156,7 +161,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
                     return;
                 }
                 // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
-                bytes = http_util::query_bytes_async(&down_url, 0 as i32).await;
+                bytes = http_util::query_bytes_async(&down_url, 0i32).await;
                 err_num += 1;
             }
             println!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
@@ -207,15 +212,21 @@ async fn download_async(entity: M3u8Item::M3u8Entity){
         // println!("===> handler={} 执行结束", idx);
         idx += 1;
     }
-    
-    if err_clips.lock().unwrap().len() > 0{
-        println!("以下片段出错没有下载完成: {:?}", err_clips.lock().unwrap());
-        config::set_signal(&entity.temp_path, Signal::Exception);
-    }
-    //TODO 正常下载完成时设置标记为end
+
+    // 正常下载完成时设置标记为end
     if config::is_normal(&temp_path){
-        config::set_signal(&entity.temp_path, Signal::End);
+        let all_success = err_clips.lock().unwrap().is_empty();
+        let mut msg = None;
+        if !all_success {
+            msg = Some(format!("以下片段出错没有下载完成: {:?}", err_clips.lock().unwrap()));
+            println!("{}",msg.as_ref().unwrap());
+            config::set_signal(&entity.temp_path, Signal::PartFinish, msg);
+        }else{
+            config::set_signal(&entity.temp_path, Signal::End, msg);
+        }
+        return all_success;
     }
+   return false;
 }
 async fn exec_group(join_v: Vec<JoinHandle<()>>){
     for j in join_v.into_iter() {
@@ -226,7 +237,7 @@ async fn exec_group(join_v: Vec<JoinHandle<()>>){
 }
 
 /// 构建文件名前缀
-fn make_name(num: i32) -> String {
+fn make_name(num: usize) -> String {
     if num < 1000 {
         let s = format!("{}", num);
         let pad = "0".repeat(4 - s.len()) + &s;

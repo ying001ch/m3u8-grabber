@@ -35,11 +35,13 @@ pub enum Signal {
     #[default] //设置枚举默认值
     Normal,
     Pause,
+    PartFinish,
     End,
     Exception, //下载异常
 }
 #[derive(Debug, Default)]
 struct TaskState{
+    err_msg: String,
     hash: String,
     total: usize,
     finished: usize,
@@ -100,8 +102,8 @@ pub fn get_task_view() -> Vec<TaskView> {
     let views:Vec<TaskView> = guard.values()
         .map(|f|{
             TaskView { task_id: f.hash.clone(), 
-                err_msg: "".to_string(), // TODO 获取错误信息
-                status: f.state.clone(), //TODO 获取任务状态
+                err_msg: f.err_msg.clone(), // 获取错误信息
+                status: f.state.clone(), // 获取任务状态
                 progress: f.progress(),
                 file_name: f.file_name.clone(),
                 finished: f.finished,
@@ -143,10 +145,15 @@ pub fn add_abort_handles(task_hash:&str, handles: Vec<AbortHandle>){
         .get_mut(task_hash)
         .map(|t|t.abort_handles = handles);
 }
-pub fn set_signal(task_hash: &str, ss: Signal) {
+pub fn set_signal(task_hash: &str, ss: Signal, msg: Option<String>) {
     let mut guard = TASK_MAP.write().unwrap();
     guard.get_mut(task_hash)
-        .map(|f|f.state = ss);
+        .map(|f|{
+            f.state = ss;
+            if let Some(msg) = msg{
+                f.err_msg = msg;
+            }
+        });
 }
 pub fn is_end(task_hash: &str) -> bool{
     predict_status(task_hash, Signal::End)

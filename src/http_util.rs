@@ -2,7 +2,7 @@ use anyhow::{Result, bail, anyhow};
 use bytes::Bytes;
 use reqwest::blocking::{Client, Response};
 use std::{env, io::{Read, Write}, time::Duration, sync::{Mutex, Arc}};
-use crate::{str_util, config};
+use crate::config;
 
 /// 静态变量
 static ASYNC_CLIENT: Mutex<Option<Arc<reqwest::Client>>> = Mutex::new(None);
@@ -29,14 +29,14 @@ pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Bytes, 
                 return Err(format!("=====> 请求异常，status: {}", res.status()));
             }
             res.bytes().await
-                .map_err(|e|e.to_string())
+                .map_err(|e| e.to_string())
         },
         Err(err) => {
             Err(err.to_string())
         }
     }
 }
-pub fn query_bytes(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, reqwest::Error> {
+pub fn query_bytes(url: &str, idx:i32) ->std::result::Result<Bytes, reqwest::Error> {
     let client = get_client(idx);
     let mut req_builder = client.get(url);
     let head = get_headers();
@@ -44,12 +44,7 @@ pub fn query_bytes(url: &str, idx:i32) ->std::result::Result<Box<Bytes>, reqwest
         req_builder = req_builder.header(&h.0, &h.1);
     }
     let body = client.execute(req_builder.build().unwrap());
-    match body {
-        Ok(res) => res.bytes().map(|b|Box::new(b)),
-        Err(err) => {
-            Err(err)
-        }
-    }
+    body.map_or_else(|res|Err(res), |res|res.bytes())
 }
 pub fn query_text(url: &str) -> Result<String> {
     let b = query_bytes(url,0);

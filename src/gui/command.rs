@@ -40,7 +40,7 @@ pub fn combine_cmd(param_str: &str) -> Result<&str, String>{
 /// 暂停任务
 #[tauri::command]
 pub fn pause(task_hash: &str) -> Result<&str,String>{
-    config::set_signal(task_hash, Signal::Pause);
+    config::set_signal(task_hash, Signal::Pause,None);
     return config::abort_task(task_hash).map_err(|e|e.to_string());
 }
 /// 修改成获取状态 TaskView

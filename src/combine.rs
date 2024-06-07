@@ -1,4 +1,5 @@
 use std::{env, io::Write, process::{Command, Stdio}, string};
+use std::fs::ReadDir;
 
 use anyhow::{Result, Context, bail};
 
@@ -16,34 +17,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, async_task: bool) -> Result
     println!("ffmpeg: {}", ffmpeg);
 
     // 2. 生成合并文件
-    let com_file_name={
-        let com_file_name = format!("{}/combine.txt",clip_dir);
-        let mut com_txt = std::fs::File::create(&com_file_name)
-                .context("创建合并文件失败")?;
-        let mut file_list = vec![];
-        for entry in  dir_ex{
-            let file_name = entry.unwrap().file_name().into_string()
-                    .expect("获取文件名时错误");
-            if !file_name.contains(".ts") {
-                continue;
-            }
-            let line = format!("file '{}'\n", file_name);
-            file_list.push(line);
-        }
-        if file_list.is_empty(){
-            println!("合并目录：{}为空", clip_dir);
-            return Ok(());
-        }
-        file_list.sort_by(|x,y|{
-            x.cmp(y)
-        });
-        for f in file_list {
-            com_txt.write_all(f.as_bytes())
-                .context(format!("生成合并文件时出错，file:{}", com_file_name))?;
-        }
-        com_txt.flush()?;
-        com_file_name
-    };
+    let com_file_name= build_com_file(clip_dir, dir_ex)?;
     println!("com_file_name: {}", &com_file_name);
    
 
@@ -85,9 +59,39 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, async_task: bool) -> Result
     }
 }
 
+/// 构建合并描述文件
+fn build_com_file(clip_dir: &str, dir_ex: ReadDir) -> Result<String> {
+    let com_file_name = format!("{}/combine.txt", clip_dir);
+    let mut com_txt = std::fs::File::create(&com_file_name)
+        .context("创建合并文件失败")?;
+    let mut file_list = vec![];
+    for entry in dir_ex {
+        let file_name = entry.unwrap().file_name().into_string()
+            .expect("获取文件名时错误");
+        if !file_name.contains(".ts") {
+            continue;
+        }
+        let line = format!("file '{}'\n", file_name);
+        file_list.push(line);
+    }
+    if file_list.is_empty() {
+        println!("合并目录：{}为空", clip_dir);
+        bail!("");
+    }
+    file_list.sort_by(|x, y| {
+        x.cmp(y)
+    });
+    for f in file_list {
+        com_txt.write_all(f.as_bytes())
+            .context(format!("生成合并文件时出错，file:{}", com_file_name))?;
+    }
+    com_txt.flush()?;
+    Ok(com_file_name)
+}
+
 fn get_output_name(save_path: &str) -> String {
-    if(save_path.is_empty() || save_path.ends_with("/") || save_path.ends_with("\\")){
-        return format!("{}output.mp4", save_path);
+    if save_path.is_empty() || save_path.ends_with("/") || save_path.ends_with("\\") {
+        return format!("{}output.ts", save_path);
     }
     save_path.to_string()
 }

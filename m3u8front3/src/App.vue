@@ -103,6 +103,7 @@
                     :text-inside="true" :stroke-width="30" :percentage="task.progress*100" 
                     :status="status_transfer(task.status)">
                   <span>已完成 {{(task.progress*100).toFixed(2)}}%</span>
+                  <span v-if="task.err_msg">Error: {{task.err_msg}}</span>
                 </el-progress>
             </div>
         </div>
@@ -125,6 +126,7 @@ const Exception = 'Exception'
 const map = {
   Normal: '',
   Pause: warning,
+  PartFinish: warning,
   End: success,
   Exception: exception,
 }

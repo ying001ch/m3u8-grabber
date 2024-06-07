@@ -7,7 +7,6 @@ use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
-use crate::{str_util};
 use crate::config;
 use anyhow::{anyhow, bail, Context, Ok, Result};
 use serde::{Serialize, Deserialize};
@@ -157,17 +156,14 @@ impl M3u8Entity {
      */
     fn process(&mut self, param :&DownParam) -> Result<()> {
         let m3u8_url = param.address.as_str();
-        let mut idx1: i32 = str_util::index_of('?', m3u8_url);
-        if idx1 == -1 {
-            idx1 = m3u8_url.len() as i32;
-        }
-        let idx2 = str_util::last_index('/', &m3u8_url[0..idx1 as usize]);
-        if idx2 == -1 {
-            bail!("M3u8地址最后一个 / 找不到")
-        }
-        self.url_prefix = Some((&m3u8_url[0..idx2 as usize]).to_string() + "/");
+        //找到?位置 如果找不到就返回长度
+        let idx1 = m3u8_url.find('?').unwrap_or(m3u8_url.len());
+        //找到path部分最后一个 /
+        let idx2 = (&m3u8_url[0..idx1]).rfind('/').ok_or(anyhow!("M3u8地址最后一个 / 找不到"))?;
+
+        self.url_prefix = Some((&m3u8_url[0..idx2]).to_string() + "/");
         println!("url_prefix = {}", self.url_prefix.as_ref().unwrap());
-    
+
         self.req_key(param)
     }
     pub fn req_key(&mut self, param :&DownParam) -> Result<()>{
@@ -187,18 +183,11 @@ impl M3u8Entity {
         }
         println!("req_key key_url={}", &self.key_url);
         let raw_bytes = http_util::query_bytes(&self.key_url,0)?;
-        let mut key_bytes = [0u8;16];
-        let len = raw_bytes.len();
-        if len != 16 {
+        if raw_bytes.len() != 16 {
             bail!("requested key length is not 16")
         }
-        let mut idx=0;
-        for b in *raw_bytes {
-            key_bytes[idx] = b;
-            idx += 1;
-        }
-        self.key = key_bytes;
-        println!("key_bytes={:?}", key_bytes);
+        self.key.copy_from_slice(&raw_bytes);
+        println!("key_bytes={:?}", self.key);
         Ok(())
     }
     pub fn need_decode(&self)-> bool{
