@@ -6,7 +6,7 @@ use M3u8_Grabber::*;
 use M3u8Item::{DownParam};
 
 mod Test;
-mod command;
+mod gui;
 
 // #[tokio::main]
 fn main() {
@@ -17,5 +17,5 @@ fn main() {
     return;
   }
   //启动 Tauri GUI
-  command::start_tauri();
+  gui::command::start_tauri();
 }
