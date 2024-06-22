@@ -83,6 +83,15 @@
               </el-row>
               <!-- 合并设置 -->
               只下载不合并<el-switch v-model="param.no_combine" />
+              合并方式<el-select v-model="param.combine_type" placeholder="Select"
+                      size="large"
+                      style="width: 240px"
+                    >
+                      <el-option  v-for="item in options"
+                          :key="item.value"
+                          :label="item.label"
+                          :value="item.value"/>
+                    </el-select>
             </div>
           </el-main>
           <el-footer>
@@ -148,6 +157,7 @@ export default {
         worker_num: 80,
         task_type: 1,
         no_combine: false,
+        combine_type: 1,
         signal: ''
       },
       tasks: [
@@ -160,15 +170,16 @@ export default {
         //   finished: '685',
         //   total: '2023',
         // },
-        // {
-        //   task_id: '12',
-        //   err_msg: '',
-        //   status: 'Exception',
-        //   progress: 0.35,
-        //   file_name: '葫芦兄弟.mp4',
-        //   finished: '685',
-        //   total: '2023',
-        // },
+      ],
+      options: [
+        {
+          value: 1,
+          label: '二进制合并',
+        },
+        {
+          value: 2,
+          label: 'FFMPEG合并',
+        },
       ]
     }
   },

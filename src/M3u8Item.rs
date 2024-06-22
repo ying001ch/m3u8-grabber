@@ -1,6 +1,6 @@
 use core::panic;
 use std::collections::hash_map::DefaultHasher;
-use std::env;
+use std::{default, env};
 use std::error::Error;
 use std::fmt::format;
 use std::hash::{Hash, Hasher};
@@ -24,6 +24,7 @@ pub struct DownParam {
     pub key_str: Option<String>,      //m3u8片段的解密key
     pub worker_num: usize,            //下载使用的并行任务数量 async方式
     pub task_type: usize,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
+    pub combine_type: usize,            //合并类型 1-二进制合并 2-ffmpeg合并
     pub no_combine: bool,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
 }
 impl DownParam {
@@ -36,6 +37,7 @@ impl DownParam {
         param.address = args[1].clone();
         //任务类型
         param.task_type = config::TASK_DOWN;
+        param.task_type = config::COMB_BIN;
         args.iter().for_each(|s|{
             if s.contains("--output="){ //保存路径
                 param.save_path = s.replace("--output=","");
@@ -57,6 +59,11 @@ impl DownParam {
             }else if s.contains("--combine="){
                 param.combine_dir = Some(s.replace("--combine=", ""));
                 param.task_type = config::TASK_COM;
+            }else if s.contains("--combine_type="){
+                match s.replace("--combine_type=", "").parse::<usize>() {
+                    std::result::Result::Ok(num) => param.combine_type = num,
+                    Err(_) => println!("无法将字符串转换为usize类型: {}", s),
+                };
             }
         });
         if param.worker_num <= 0 {

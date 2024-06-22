@@ -1,15 +1,23 @@
-use std::{env, io::Write, process::{Command, Stdio}, string};
+use std::{env, io::{Read, Write}, process::{Command, Stdio}, string, thread};
 use std::fs::ReadDir;
 
 use anyhow::{Result, Context, bail};
 
+use crate::config;
+
 /// 调用FFMMPEG合并视频片段
-pub fn combine_clip(clip_dir: &str, save_path: &str, async_task: bool) -> Result<()>{
+pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_task: bool) -> Result<()>{
     let dir_ex = std::fs::read_dir(clip_dir)
         .context(format!("clip_dir: {} not exists!", clip_dir))?;
 
     let save_path = get_output_name(save_path);
     println!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path);
+
+    //判断使用二进制合并还是 ffmpeg
+    if comb_type == config::COMB_BIN {
+        return bin_combine(clip_dir, save_path, async_task);
+    }
+
     // 1. 检测环境变量
     let ffmpeg_dir = std::env::var("FFMPEG_PATH")
         .context("没有配置 FFMPEG_PATH 环境变量")?;
@@ -56,6 +64,59 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, async_task: bool) -> Result
         Ok(())
     }else{
         child_listener()
+    }
+}
+
+fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<(), anyhow::Error> {
+    println!("将使用二进制合并！");
+
+    // 获取所有视频文件
+    let video_files: Vec<_> = std::fs::read_dir(clip_dir)?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| is_video_file(entry))
+        .collect();
+
+    // 检查是否有视频文件
+    if video_files.is_empty() {
+        bail!("No video files found in the specified directory.");
+    }
+
+    // 合并文件（简化处理，实际可能需要使用特定库）
+    let mut output_file = std::fs::File::create(&save_path).context("Failed to create the output file")?;
+
+    let handler = move || {
+        for video_file in video_files {
+            let input_path = video_file.path();
+            let mut input_file = std::fs::File::open(&input_path).context(format!("Failed to open file: {:?}", input_path))?;
+            let mut buffer = [0; 1024];
+            loop {
+                let bytes_read = input_file.read(&mut buffer)?;
+                if bytes_read == 0 {
+                    break; // EOF
+                }
+                output_file.write_all(&buffer[..bytes_read])?;
+            }
+        }
+        Ok::<(),anyhow::Error>(())
+    };
+
+   
+    if async_task {
+        thread::spawn(handler);
+    }else{
+        handler()?;
+    }
+
+    println!("Video files have been successfully combined into {}", save_path);
+    Ok(())
+}
+
+fn is_video_file(entry: &std::fs::DirEntry) -> bool {
+    let path = entry.path();
+    if let Some(ext) = path.extension() {
+        ext.to_string_lossy().eq_ignore_ascii_case("ts") // 示例中仅检查mp4文件，根据需要扩展
+    } else {
+        false
     }
 }
 

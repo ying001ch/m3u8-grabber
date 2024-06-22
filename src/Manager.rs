@@ -33,6 +33,7 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
         config::TASK_COM => combine::combine_clip(
             param.combine_dir.unwrap().as_str(),
             &param.save_path.as_str(),
+            param.combine_type,
             async_task),
         _=> bail!("任务类型不对"),
     }
@@ -110,7 +111,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 
         //合并片段
         if all_success && !param.no_combine {
-            combine::combine_clip(temp_path.as_str(), save_path.as_str(),false).unwrap();
+            combine::combine_clip(temp_path.as_str(), save_path.as_str(),param.combine_type, false).unwrap();
         }
     };
     if async_task{

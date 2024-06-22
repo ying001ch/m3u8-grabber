@@ -23,6 +23,8 @@ lazy_static! {
 pub const TASK_DOWN: usize = 1; //下载视频
 pub const TASK_COM: usize = 2;  //合并视频
 
+pub const COMB_BIN: usize = 1; //二进制合并
+pub const COMB_FFMPEG: usize = 2;  //ffmpeg合并视频
 
 pub struct GlobalConfig{
     work_num: usize,
