@@ -37,7 +37,7 @@ impl DownParam {
         param.address = args[1].clone();
         //任务类型
         param.task_type = config::TASK_DOWN;
-        param.task_type = config::COMB_BIN;
+        param.combine_type = config::COMB_BIN;
         args.iter().for_each(|s|{
             if s.contains("--output="){ //保存路径
                 param.save_path = s.replace("--output=","");

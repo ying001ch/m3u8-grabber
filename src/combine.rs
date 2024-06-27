@@ -1,4 +1,4 @@
-use std::{env, io::{Read, Write}, process::{Command, Stdio}, string, thread};
+use std::{env, io::{Read, Write}, process::{Command, Stdio}, string, sync::Arc, thread};
 use std::fs::ReadDir;
 
 use anyhow::{Result, Context, bail};
@@ -84,6 +84,7 @@ fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<()
     // 合并文件（简化处理，实际可能需要使用特定库）
     let mut output_file = std::fs::File::create(&save_path).context("Failed to create the output file")?;
 
+    let cd = clip_dir.to_string();
     let handler = move || {
         for video_file in video_files {
             let input_path = video_file.path();
@@ -97,6 +98,10 @@ fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<()
                 output_file.write_all(&buffer[..bytes_read])?;
             }
         }
+        println!("开始删除临时文件:");
+        std::fs::remove_dir_all(cd).context("删除临时文件失败！")?;
+        println!("删除临时文件完成！");
+        
         Ok::<(),anyhow::Error>(())
     };
 
