@@ -11,5 +11,5 @@ fn main() {
         Manager::dispatch(param, false).unwrap();
         return;
     }
-    panic!("缺少参数")
+    help::print_help();
 }

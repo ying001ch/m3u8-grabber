@@ -5,6 +5,7 @@ mod aes_util;
 mod combine;
 pub mod config;
 pub mod view;
+pub mod help;
 
 pub fn use_cmd() -> bool {
     let args:Vec<String> = std::env::args().collect();
