@@ -144,7 +144,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity) -> bool {
         let handler = tokio::spawn(async move{
             let _permit = sem.acquire().await.unwrap();
             let down_file_path = format!("{}/{}.ts", temp_path, make_name(idx +1));
-            if tokio::fs::File::open(down_file_path.clone()).await.is_ok() {
+            if tokio::fs::File::open(down_file_path.as_str()).await.is_ok() {
                 //文件已经存在，无需下载
                 config::add_prog(&temp_path);
                 return;
@@ -180,9 +180,7 @@ async fn download_async(entity: M3u8Item::M3u8Entity) -> bool {
             } else {
                 bytes.as_ref().unwrap()
             };
-            let res = write_file_async(result, down_file_path)
-                    .await;
-            if let Err(e) = res{
+            if let Err(e) = write_file_async(result, &down_file_path).await{
                 println!("写入片段[{}]失败， err={}", idx + 1, e);
                 err_clips.lock().unwrap().push(idx);
             }else{
@@ -190,28 +188,20 @@ async fn download_async(entity: M3u8Item::M3u8Entity) -> bool {
             }
         });
         join_v.push(handler);
-        //限制并发量的一种方法，分组执行，有一定效果
-        //但是必须等到一组都执行完毕才能往下走，效率有些波动
-        //后续可以再优化一下
-        // if join_v.len() >= 1000 {
-        //     let join_v_2 = join_v;
-        //     join_v = vec![];
-        //     exec_group(join_v_2).await;
-        // }
     }
     println!("join_v len = {}", join_v.len());
-    // 创建监控线程，abort()任务
+    // 存储AbortHandle
     let abort_v:Vec<AbortHandle> = join_v.iter()
             .map(|j|j.abort_handle())
             .collect();
     config::add_abort_handles(&temp_path, abort_v);
 
-    let mut idx = 1;
+    let mut _idx = 1;
     for j in join_v{
         // println!("===> handler={} 开始执行",idx);
         let _ = j.await;
         // println!("===> handler={} 执行结束", idx);
-        idx += 1;
+        _idx += 1;
     }
 
     // 正常下载完成时设置标记为end
@@ -248,12 +238,13 @@ fn make_name(num: usize) -> String {
     format!("{}", num)
 }
 ///异步写入文件
-async fn write_file_async(result: &[u8], f_name: String) -> Result<(), Error> {
-    let mut f = File::create(f_name.clone()).await?;
+async fn write_file_async(content: &[u8], path: &str) -> Result<(), Error> {
+    let mut f = File::create(path).await?;
 
-    let n = f.write(result).await?;
+    // write_all() 会全部写入 ，write() 会写入部分
+    f.write_all(content).await?;
     f.flush().await?;
 
-    println!("写入成功 counter:{}, size: {}bytes", f_name, n);
+    println!("写入成功 counter:{},content size:{} ", path, content.len());
     Ok(())
 }

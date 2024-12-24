@@ -15,7 +15,7 @@ pub fn main() {
     query_bytes("http://localhost:8080/hs",0);
     println!("end..");
 }
-pub async fn query_bytes_async(url: &str, idx:i32) ->std::result::Result<Bytes, String> {
+pub async fn query_bytes_async(url: &str, _idx:i32) ->std::result::Result<Bytes, String> {
     let client = get_client2(0);
     let mut req_builder = client.get(url);
     let head = get_headers();
@@ -57,7 +57,7 @@ pub fn query_text(url: &str) -> Result<String> {
         }
     }
 }
-fn get_client2(idx: i32)-> Arc<reqwest::Client>{
+fn get_client2(_idx: i32)-> Arc<reqwest::Client>{
     let mut guard = ASYNC_CLIENT.lock().unwrap();
     if guard.is_none() {
         let mut builder = reqwest::Client::builder()
