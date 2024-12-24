@@ -25,6 +25,8 @@ fn test_json(){
 }
 #[cfg(test)]
 mod Test{
+    use std::borrow::Borrow;
+    use std::fmt::format;
     use std::mem::discriminant;
     use std::num::ParseIntError;
     use std::ops::Deref;
@@ -238,5 +240,38 @@ mod Test{
         } else {
             println!("x was not 10 :(");
         }
+    }
+    /// join的 使用 和 Borrow的使用
+    #[test]
+    fn test_join(){
+        #[derive(Debug)]
+        struct Point<'a> {
+            x: &'a [i32],
+        }
+    
+        impl Borrow<[i32]> for Point<'_> {
+            fn borrow(&self) -> &[i32] {
+                &self.x
+            }
+        }
+
+        
+        // 所有切片实现了 Join trait， 
+        // 只要切片元素 V 实现了 Borrow<[T]> trait 即 V 可以转成 T的切片
+        // 就可以调用 join(&T) 方法, 传入一个T 的引用，返回一个T的vec
+        let mut v = vec![Point { x: &[1, 2] }, Point { x: &[5,6] }];
+        let join_res = v.join(&3);
+        println!("join_res = {:?}", join_res);
+
+        for e  in v.iter_mut() {
+            (*e).x = &[3,4];
+        }
+
+        // 非字符串类型想要 拼接成字符串 可以 先map collect成 vec<String> 再join
+        let rres = v.iter().map(|f|format!("{:?}", f))
+            .collect::<Vec<String>>()
+            .join(",");
+
+        println!("rres = {:?}", rres);
     }
 }
