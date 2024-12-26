@@ -94,16 +94,17 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     let entity = M3u8Item::M3u8Entity::from(&param)?;
     config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
     let one = move ||{
-        let temp_path = entity.temp_path.clone();
-        let save_path = entity.save_path.clone();
+        let entity = &entity;
+        let temp_path = entity.temp_path.as_str();
+        let save_path = entity.save_path.as_str();
         let st = SystemTime::now(); //计时开始
         //手动创建了运行时，就可以不再使用main方法上的注解
         let all_success = tokio::runtime::Runtime::new().unwrap()
                 .block_on(download_async(entity));
         let spend_time = st.elapsed().unwrap().as_secs();
 
-        println!("status is {:?}", config::get_status(&temp_path));
-        if config::is_abort(&temp_path){
+        println!("status is {:?}", config::get_status(temp_path));
+        if config::is_abort(temp_path){
             println!("--->下载暂停");
             return ;
         }
@@ -111,7 +112,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 
         //合并片段
         if all_success && !param.no_combine {
-            combine::combine_clip(temp_path.as_str(), save_path.as_str(),param.combine_type, false).unwrap();
+            combine::combine_clip(temp_path, save_path,param.combine_type, false).unwrap();
         }
     };
     if async_task{
@@ -122,7 +123,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     Ok(())
 }
 ///异步下载方法
-async fn download_async(entity: M3u8Item::M3u8Entity) -> bool {
+async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
     let clip_urls =  &entity.clip_urls;
     let temp_path = &entity.temp_path;
     let nd = entity.need_decode();
