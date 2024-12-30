@@ -8,6 +8,7 @@ use tokio::task::JoinHandle;
 use anyhow::Result;
 
 use crate::aes_util;
+use crate::async_runtime;
 use crate::combine;
 use crate::config::Signal;
 use crate::http_util;
@@ -93,14 +94,13 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
     
     let entity = M3u8Item::M3u8Entity::from(&param)?;
     config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
-    let one = move ||{
+    let one = async move {
         let entity = &entity;
         let temp_path = entity.temp_path.as_str();
         let save_path = entity.save_path.as_str();
         let st = SystemTime::now(); //计时开始
         //手动创建了运行时，就可以不再使用main方法上的注解
-        let all_success = tokio::runtime::Runtime::new().unwrap()
-                .block_on(download_async(entity));
+        let all_success = download_async(entity).await;
         let spend_time = st.elapsed().unwrap().as_secs();
 
         println!("status is {:?}", config::get_status(temp_path));
@@ -116,9 +116,9 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
         }
     };
     if async_task{
-        thread::spawn(one);
+        async_runtime::spawn(one);
     }else{
-        one();
+        async_runtime::block_on(one);
     }
     Ok(())
 }
@@ -154,7 +154,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
             let down_url = prefix.to_string() + clip_clone.as_str();
             // println!("--> {}", down_url);
 
-            let mut bytes = http_util::query_bytes_async(&down_url, 0i32).await;
+            let mut bytes = http_util::query_bytes_async(&down_url).await;
             let mut err_num = 1;
             while let Err(err) = bytes {
                 println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
@@ -163,7 +163,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                     return;
                 }
                 // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
-                bytes = http_util::query_bytes_async(&down_url, 0i32).await;
+                bytes = http_util::query_bytes_async(&down_url).await;
                 err_num += 1;
             }
             println!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());

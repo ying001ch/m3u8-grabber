@@ -2,21 +2,28 @@ use anyhow::{Result, bail, anyhow};
 use bytes::Bytes;
 use reqwest::blocking::{Client, Response};
 use std::{env, io::{Read, Write}, time::Duration, sync::{Mutex, Arc}};
-use crate::config;
+use crate::{async_runtime::{self, block_on}, config};
 
 /// 静态变量
 static ASYNC_CLIENT: Mutex<Option<Arc<reqwest::Client>>> = Mutex::new(None);
 
 /// 方法
-
+#[test]
 pub fn main() {
-    let args:Vec<String> = env::args().collect();
-
-    query_bytes("http://localhost:8080/hs",0);
+    let fc = ||{
+        let text = query_text("https://baidu.com");
+        if let Ok(res) = text {
+            println!("res: {}", &res[..100]);
+        } else {
+            println!("error: {:?}", text);
+        }
+    };
+    fc();
+    fc();
     println!("end..");
 }
-pub async fn query_bytes_async(url: &str, _idx:i32) ->std::result::Result<Bytes, String> {
-    let client = get_client2(0);
+pub async fn query_bytes_async(url: &str) ->std::result::Result<Bytes, String> {
+    let client = get_client2();
     let mut req_builder = client.get(url);
     let head = get_headers();
     for h in head {
@@ -36,18 +43,13 @@ pub async fn query_bytes_async(url: &str, _idx:i32) ->std::result::Result<Bytes,
         }
     }
 }
-pub fn query_bytes(url: &str, idx:i32) ->std::result::Result<Bytes, reqwest::Error> {
-    let client = get_client(idx);
-    let mut req_builder = client.get(url);
-    let head = get_headers();
-    for h in head {
-        req_builder = req_builder.header(&h.0, &h.1);
-    }
-    let body = client.execute(req_builder.build().unwrap());
-    body.map_or_else(|res|Err(res), |res|res.bytes())
+pub fn query_bytes(url: &str) ->anyhow::Result<Bytes> {
+    let f = query_bytes_async(url);
+
+    async_runtime::block_on(f).map_err(|e|anyhow!("{}",e))
 }
 pub fn query_text(url: &str) -> Result<String> {
-    let b = query_bytes(url,0);
+    let b = query_bytes(url);
     match b {
         Ok(res) => Ok(String::from_utf8_lossy(&res).to_string()),
         Err(err) => {
@@ -57,7 +59,7 @@ pub fn query_text(url: &str) -> Result<String> {
         }
     }
 }
-fn get_client2(_idx: i32)-> Arc<reqwest::Client>{
+fn get_client2()-> Arc<reqwest::Client>{
     let mut guard = ASYNC_CLIENT.lock().unwrap();
     if guard.is_none() {
         let mut builder = reqwest::Client::builder()
@@ -91,38 +93,6 @@ pub fn update_client(){
     let cli = builder.build().expect("build clent failed.");
     *guard = Some(Arc::new(cli));
     println!("=========> 更新proxy成功： proxy:{}",p);
-}
-fn get_client(idx: i32)-> Client{
-
-    let mut builder = reqwest::blocking::Client::builder();
-    let p = get_proxy();
-    if p.len()>0 {
-        let proxy = reqwest::Proxy::all(p.as_str())
-                .expect("socks proxy should be there");
-        builder = builder.proxy(proxy);
-    }
-    let cli = builder.build().expect("build clent failed.");
-    cli
-}
-
-fn write_file(mut reader: Response) {
-    let mut buf = [0u8; 1024 * 500];
-
-    let mut file = std::fs::File::create("v.f56150——1.ts").expect("open file failed");
-    loop {
-        let res = reader.read(&mut buf);
-        if let Ok(size) = res {
-            println!("size is {}", size);
-            if size <= 0 {
-                break;
-            }
-            let handler = file.write(&buf[0..size]);
-            handler.expect("写入失败");
-            file.flush().expect("flush 失败");
-        } else {
-            panic!("读取失败");
-        }
-    }
 }
 fn get_proxy()-> String {
     config::get_proxys()

@@ -189,7 +189,7 @@ impl M3u8Entity {
             self.key_url = self.url_prefix.as_ref().unwrap().to_string() + &self.key_url;
         }
         println!("req_key key_url={}", &self.key_url);
-        let raw_bytes = http_util::query_bytes(&self.key_url,0)?;
+        let raw_bytes = http_util::query_bytes(&self.key_url)?;
         if raw_bytes.len() != 16 {
             bail!("requested key length is not 16")
         }
