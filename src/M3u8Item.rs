@@ -204,23 +204,10 @@ impl M3u8Entity {
         self.clip_urls.len()
     }
 }
-fn get_temp_path()-> Option<String>{
-    std::env::args().filter(|e|e.contains("--temp="))
-        .map(|e|e.replace("--temp=",""))
-        .find(|_e|true)
-}
 fn dir_exists(dir_path: &str)-> bool{
     let dir_ex = std::fs::read_dir(dir_path);
     println!("file_exists f={}, res: {}", dir_path, dir_ex.is_ok());
     dir_ex.is_ok()
-}
-fn timestamp1() -> i64 {
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    let ms = since_the_epoch.as_secs() as i64 * 1000i64 + (since_the_epoch.subsec_nanos() as f64 / 1_000_000.0) as i64;
-    ms
 }
 fn parse_key(mm: &mut M3u8Entity, line: &str) {
     let (_k, vv) = line.split_once(":").unwrap();
