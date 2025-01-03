@@ -5,7 +5,7 @@ use std::{env, io::{Read, Write}, time::Duration, sync::{Mutex, Arc}};
 use crate::{async_runtime::{self, block_on}, config};
 
 /// 静态变量
-static ASYNC_CLIENT: Mutex<Option<Arc<reqwest::Client>>> = Mutex::new(None);
+static ASYNC_CLIENT: Mutex<Option<reqwest::Client>> = Mutex::new(None);
 
 /// 方法
 #[test]
@@ -59,7 +59,7 @@ pub fn query_text(url: &str) -> Result<String> {
         }
     }
 }
-fn get_client2()-> Arc<reqwest::Client>{
+fn get_client2()-> reqwest::Client{
     let mut guard = ASYNC_CLIENT.lock().unwrap();
     if guard.is_none() {
         let mut builder = reqwest::Client::builder()
@@ -73,7 +73,7 @@ fn get_client2()-> Arc<reqwest::Client>{
             builder = builder.proxy(proxy);
         }
         let cli = builder.build().expect("build clent failed.");
-        *guard = Some(Arc::new(cli));
+        *guard = Some(cli);
     }
     guard.as_ref().map(|f|f.clone()).unwrap()
     
@@ -91,7 +91,7 @@ pub fn update_client(){
         builder = builder.proxy(proxy);
     }
     let cli = builder.build().expect("build clent failed.");
-    *guard = Some(Arc::new(cli));
+    *guard = Some(cli);
     println!("=========> 更新proxy成功： proxy:{}",p);
 }
 fn get_proxy()-> String {
