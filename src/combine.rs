@@ -1,4 +1,4 @@
-use std::{env, io::{Read, Write}, process::{Command, Stdio}, string, sync::Arc, thread};
+use std::{env, io::{BufWriter, Read, Write}, process::{Command, Stdio}, string, sync::Arc, thread};
 use std::fs::ReadDir;
 
 use anyhow::{Result, Context, bail};
@@ -86,16 +86,17 @@ fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<()
 
     let cd = clip_dir.to_string();
     let handler = move || {
+        let mut buf_writer = BufWriter::new(output_file);
         for video_file in video_files {
             let input_path = video_file.path();
             let mut input_file = std::fs::File::open(&input_path).context(format!("Failed to open file: {:?}", input_path))?;
-            let mut buffer = [0; 1024];
+            let mut buffer = [0; 1024*4];
             loop {
                 let bytes_read = input_file.read(&mut buffer)?;
                 if bytes_read == 0 {
                     break; // EOF
                 }
-                output_file.write_all(&buffer[..bytes_read])?;
+                buf_writer.write_all(&buffer[..bytes_read])?;
             }
         }
         println!("开始删除临时文件:");
