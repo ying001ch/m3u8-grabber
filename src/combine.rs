@@ -11,7 +11,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
         .context(format!("clip_dir: {} not exists!", clip_dir))?;
 
     let save_path = get_output_name(save_path);
-    println!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path);
+    log::info!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path);
 
     //判断使用二进制合并还是 ffmpeg
     if comb_type == config::COMB_BIN {
@@ -22,11 +22,11 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
     let ffmpeg_dir = std::env::var("FFMPEG_PATH")
         .context("没有配置 FFMPEG_PATH 环境变量")?;
     let ffmpeg = format!("{}/ffmpeg",ffmpeg_dir);
-    println!("ffmpeg: {}", ffmpeg);
+    log::info!("ffmpeg: {}", ffmpeg);
 
     // 2. 生成合并文件
     let com_file_name= build_com_file(clip_dir, dir_ex)?;
-    println!("com_file_name: {}", &com_file_name);
+    log::info!("com_file_name: {}", &com_file_name);
    
 
     let output_name = save_path;
@@ -49,13 +49,13 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
     let clip_dir = clip_dir.to_owned();
     let child_listener = move ||{
         let status = child.wait()?;
-        println!("===>output status={}", status);
-        println!("===>output success={}", status.success());
+        log::info!("===>output status={}", status);
+        log::info!("===>output success={}", status.success());
         
         if status.success() {
-            println!("开始删除临时文件:");
+            log::info!("开始删除临时文件:");
             std::fs::remove_dir_all(clip_dir).context("删除临时文件失败！")?;
-            println!("删除临时文件完成！");
+            log::info!("删除临时文件完成！");
         }
         Ok::<(),anyhow::Error>(())
     };
@@ -68,7 +68,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
 }
 
 fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(), anyhow::Error> {
-    println!("将使用二进制合并！");
+    log::info!("将使用二进制合并！");
 
     // 获取所有视频文件
     let video_files: Vec<_> = std::fs::read_dir(clip_dir)?
@@ -101,9 +101,9 @@ fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(),
                 output_file.write_all(&buffer[..bytes_read])?;
             }
         }
-        println!("开始删除临时文件:");
+        log::info!("开始删除临时文件:");
         std::fs::remove_dir_all(cd).context("删除临时文件失败！")?;
-        println!("删除临时文件完成！");
+        log::info!("删除临时文件完成！");
         
         Ok::<(),anyhow::Error>(())
     };
@@ -115,7 +115,7 @@ fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(),
         handler()?;
     }
 
-    println!("Video files have been successfully combined into {:?}", save_path);
+    log::info!("Video files have been successfully combined into {:?}", save_path);
     Ok(())
 }
 
@@ -144,8 +144,8 @@ fn build_com_file(clip_dir: &str, dir_ex: ReadDir) -> Result<String> {
         file_list.push(line);
     }
     if file_list.is_empty() {
-        println!("合并目录：{}为空", clip_dir);
-        bail!("");
+        log::error!("合并目录：{}为空", clip_dir);
+        bail!("合并目录为空");
     }
     file_list.sort_by(|x, y| {
         x.cmp(y)

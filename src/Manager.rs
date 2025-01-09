@@ -57,16 +57,10 @@ fn validate_param(param: &DownParam)-> Result<()>{
 }
 /// 运行下载任务
 fn run(param: DownParam, async_task: bool) -> Result<()>{
-    println!("Hello this is M3u8-Downloader by rust");
-
     //设置代理 
     param.proxy.as_ref()
         .filter(|f|!f.is_empty())
-        .map(|p|config::set_proxys(p.to_string()))
-        .or_else(||{
-            config::set_proxys("".to_string());
-            None
-        });
+        .inspect(|&p|config::set_proxys(p));
     //设置请求头
     param.headers.as_ref()
         .filter(|&f|!f.is_empty())
@@ -85,7 +79,7 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
                     }
                 })
                 .collect();
-            println!("headers is :{:?}", v);
+            log::info!("headers is :{:?}", v);
             config::set_headers(v);
         });
     //set workerNum
@@ -103,18 +97,18 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
         let all_success = download_async(entity).await;
         let spend_time = st.elapsed().unwrap().as_secs();
 
-        println!("status is {:?}", config::get_status(temp_path));
+        log::info!("status is {:?}", config::get_status(temp_path));
         if config::is_abort(temp_path){
-            println!("--->下载暂停");
+            log::info!("--->下载暂停");
             return ;
         }
-        println!("下载完毕！总耗时：{}s no_combine:{} all_success:{}", spend_time, param.no_combine, all_success);
+        log::info!("下载完毕！总耗时：{}s no_combine:{} all_success:{}", spend_time, param.no_combine, all_success);
 
         //合并片段
         if all_success && !param.no_combine {
             let _ = combine::combine_clip(temp_path, save_path,param.combine_type, false)
                 .inspect_err(|e|{
-                    eprintln!("合并片段出错：{}", e);
+                    log::error!("合并片段出错：{}", e);
                 });
         }
     };
@@ -160,7 +154,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
             let mut bytes = http_util::query_bytes_async(&down_url).await;
             let mut err_num = 1;
             while let Err(err) = bytes {
-                println!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
+                log::error!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
                 if err_num >=5 {
                     err_clips.lock().unwrap().push(idx);
                     return;
@@ -169,7 +163,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                 bytes = http_util::query_bytes_async(&down_url).await;
                 err_num += 1;
             }
-            println!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
+            log::info!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
             //写入文件
             let origin_bytes;
             let result: &[u8] = if nd {
@@ -178,14 +172,14 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                     origin_bytes = v;
                     &origin_bytes
                 }else{
-                    println!("片段({}) Decode ERROR 解密过程出错：{}", idx, res.unwrap_err());
+                    log::error!("片段({}) Decode ERROR 解密过程出错：{}", idx, res.unwrap_err());
                     return;
                 }
             } else {
                 bytes.as_ref().unwrap()
             };
             if let Err(e) = write_file_async(result, &down_file_path).await{
-                println!("写入片段[{}]失败， err={}", idx + 1, e);
+                log::error!("写入片段[{}]失败， err={}", idx + 1, e);
                 err_clips.lock().unwrap().push(idx);
             }else{
                 config::add_prog(&temp_path);
@@ -193,7 +187,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         });
         join_v.push(handler);
     }
-    println!("join_v len = {}", join_v.len());
+    log::info!("join_v len = {}", join_v.len());
     // 存储AbortHandle
     let abort_v:Vec<AbortHandle> = join_v.iter()
             .map(|j|j.abort_handle())
@@ -214,7 +208,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         let mut msg = None;
         if !all_success {
             msg = Some(format!("以下片段出错没有下载完成: {:?}", err_clips.lock().unwrap()));
-            println!("{}",msg.as_ref().unwrap());
+            log::error!("{}",msg.as_ref().unwrap());
             config::set_signal(&entity.temp_path, Signal::PartFinish, msg);
         }else{
             config::set_signal(&entity.temp_path, Signal::End, msg);
@@ -222,13 +216,6 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         return all_success;
     }
    return false;
-}
-async fn exec_group(join_v: Vec<JoinHandle<()>>){
-    for j in join_v.into_iter() {
-        println!("===> handler= 开始执行");
-        j.await;
-        println!("===> handler= 执行结束");
-    }
 }
 
 /// 构建文件名前缀
@@ -249,6 +236,6 @@ async fn write_file_async(content: &[u8], path: &str) -> Result<(), Error> {
     f.write_all(content).await?;
     f.flush().await?;
 
-    println!("写入成功 counter:{},content size:{} ", path, content.len());
+    log::info!("写入成功 counter:{},content size:{} ", path, content.len());
     Ok(())
 }

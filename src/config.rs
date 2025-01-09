@@ -72,7 +72,7 @@ pub fn set_work_num(work_num: usize) {
     match a {
         Ok(mut res)=>res.work_num=work_num,
         Err(e)=>{
-            println!("====> err: {}",e);
+            log::error!("====> err: {}",e);
         }
     }
     // .unwrap();
@@ -82,12 +82,13 @@ pub fn get_work_num() -> usize {
     GLOBAL_CONFIG.read().unwrap().work_num
 }
 //----------------------------------------------------------------
-pub fn set_proxys(ss: String) {
+pub fn set_proxys(ss: &str) {
     {
         let mut a = GLOBAL_CONFIG.write().unwrap();
-        a.proxys = Some(ss);
+        a.proxys = Some(ss.to_owned());
     }
     http_util::update_client();
+    log::info!("=========> 更新proxy成功： proxy:{}",ss);
 }
 pub fn get_proxys() -> String {
     GLOBAL_CONFIG.read().unwrap().proxys.clone().unwrap_or("".to_string())

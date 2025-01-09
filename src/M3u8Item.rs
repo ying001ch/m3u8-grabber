@@ -31,7 +31,6 @@ pub struct DownParam {
 impl DownParam {
     pub fn from_cmd() -> Self{
         let mut param = DownParam::default();
-        println!("===>param::default : {:?}", param);
         //获取命令
         let args: Vec<String> = env::args().collect();
         //下载地址
@@ -63,14 +62,14 @@ impl DownParam {
             }else if s.contains("--combine_type="){
                 match s.replace("--combine_type=", "").parse::<usize>() {
                     std::result::Result::Ok(num) => param.combine_type = num,
-                    Err(_) => println!("无法将字符串转换为usize类型: {}", s),
+                    Err(_) => log::error!("无法将字符串转换为usize类型: {}", s),
                 };
             }
         });
         if param.worker_num <= 0 {
             param.worker_num = 8;
         }
-        println!("===>param : {:?}", param);
+        log::info!("===>param : {:?}", param);
         param
     }
 }
@@ -112,7 +111,7 @@ impl M3u8Entity {
             std::fs::create_dir_all(&entity.temp_path)
                 .context(format!("create temp path failed. {}", &entity.temp_path))?;
         }
-        println!("temp_path : {}", &entity.temp_path);
+        log::info!("temp_path : {}", &entity.temp_path);
 
         // 解析key 和 片段地址
         let lines  = content.lines();
@@ -128,9 +127,9 @@ impl M3u8Entity {
             bail!(format!("M3U8 元信息解析错误，未解析到视频片段信息。content: \n{}", &content[0..200]));
         }
         if entity.key_url.is_empty(){
-            println!("未发现密钥信息, 将不进行解密！");
+            log::info!("未发现密钥信息, 将不进行解密！");
         }
-        println!("clip num: {}", entity.clip_urls.len());
+        log::info!("clip num: {}", entity.clip_urls.len());
 
 
         entity.save_path = param.save_path.to_owned();
@@ -150,7 +149,7 @@ impl M3u8Entity {
         let idx2 = (&m3u8_url[0..idx1]).rfind('/').ok_or(anyhow!("M3u8地址最后一个 / 找不到"))?;
 
         self.url_prefix = Some((&m3u8_url[0..idx2]).to_string() + "/");
-        println!("url_prefix = {}", self.url_prefix.as_ref().unwrap());
+        log::info!("url_prefix = {}", self.url_prefix.as_ref().unwrap());
 
         self.req_key(param)
     }
@@ -169,13 +168,13 @@ impl M3u8Entity {
         if !(&self.key_url).starts_with("http") {
             self.key_url = self.url_prefix.as_ref().unwrap().to_string() + &self.key_url;
         }
-        println!("req_key key_url={}", &self.key_url);
+        log::info!("req_key key_url={}", &self.key_url);
         let raw_bytes = http_util::query_bytes(&self.key_url)?;
         if raw_bytes.len() != 16 {
             bail!("requested key length is not 16")
         }
         self.key.copy_from_slice(&raw_bytes);
-        println!("key_bytes={:?}", self.key);
+        log::info!("key_bytes={:?}", self.key);
         Ok(())
     }
     pub fn need_decode(&self)-> bool{
@@ -225,6 +224,6 @@ fn cal_hash(input : &str) -> String{
     let mut hasher = DefaultHasher::new();
     input.hash(&mut hasher);
     let output = hasher.finish();
-    println!("auto temp clip dir ={}", output); // 输出字符串的哈希值
+    log::info!("auto temp clip dir ={}", output); // 输出字符串的哈希值
     format!("{}",output)
 }

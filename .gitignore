@@ -5,3 +5,4 @@ node_modules/
 /*/*.ts
 /.idea
 *.mp4
+/log

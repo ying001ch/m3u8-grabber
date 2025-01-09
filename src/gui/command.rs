@@ -24,9 +24,9 @@ pub fn start_tauri(){
 /// 提交视频下载任务
 #[tauri::command]
 pub fn submit_task(param_str: &str) -> Result<&str, String>{
-    println!("raw str: {}",param_str);
+    log::debug!("raw str: {}",param_str);
     let param: DownParam = serde_json::from_str(param_str).unwrap();
-    println!("deserialized = {:?}", param);
+    log::info!("deserialized = {:?}", param);
 
     Manager::dispatch(param,true).map(|_|"提交成功").map_err(|e|e.to_string())
 }

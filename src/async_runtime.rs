@@ -32,7 +32,7 @@ where
 fn default_runtime() -> GlobalRuntime {
     let runtime = Runtime::new().unwrap();
     let handle = runtime.handle().clone();
-    println!("运行时已经创建");
+    log::info!("tokio 异步运行时已创建");
     GlobalRuntime {
         runtime: runtime,
         handle,

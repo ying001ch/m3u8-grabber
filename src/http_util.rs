@@ -53,7 +53,7 @@ pub fn query_text(url: &str) -> Result<String> {
     match b {
         Ok(res) => Ok(String::from_utf8_lossy(&res).to_string()),
         Err(err) => {
-            println!("{}", err);
+            log::error!("{}", err);
             // bail!();
             bail!("query text failed! err: {}",err)
         }
@@ -92,7 +92,6 @@ pub fn update_client(){
     }
     let cli = builder.build().expect("build clent failed.");
     *guard = Some(cli);
-    println!("=========> 更新proxy成功： proxy:{}",p);
 }
 fn get_proxy()-> String {
     config::get_proxys()

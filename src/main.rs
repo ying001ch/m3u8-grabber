@@ -10,10 +10,13 @@ mod gui;
 
 // #[tokio::main]
 fn main() {
+  log_init::run();
   //判断是否使用命令行
   if use_cmd(){
     let param:DownParam = DownParam::from_cmd();
-    Manager::dispatch(param,false).unwrap();
+    Manager::dispatch(param,false).inspect_err(|e|{
+        log::error!("dispatch task error : {}", e);
+    }).unwrap();
     return;
   }
   //启动 Tauri GUI

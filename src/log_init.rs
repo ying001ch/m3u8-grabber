@@ -1,0 +1,66 @@
+use std::path::Path;
+
+use anyhow::anyhow;
+use log::LevelFilter;
+use log4rs::{
+    append::{console::ConsoleAppender, file::FileAppender},
+    config::{Appender, Root},
+    encode::pattern::PatternEncoder,
+    Config,
+};
+
+use crate::use_cmd;
+
+const LOG_PATTERN: &str = "[{d(%Y-%m-%dT%H:%M:%S%.3f)} {h({l}):<5.5} {T} {M}] {m}{n}";
+const CONFIG_PATH: &str = "log4rs.yaml";
+const DEFAULT_LEVEL : LevelFilter = LevelFilter::Debug;
+pub fn run() {
+    let result:anyhow::Result<_> = if use_cmd() {
+        println!("使用命令行参数初始化日志组件");
+        let config = Config::builder().appender(
+            console_appender(),
+        );
+        let root = Root::builder()
+            .appenders(["console"])
+            .build(DEFAULT_LEVEL);
+        log4rs::init_config(config.build(root).unwrap()).map(|_|())
+            .map_err(|e|anyhow!("初始化日志组件异常 {e}"))
+    } else if Path::new(CONFIG_PATH).exists(){
+        log4rs::init_file("log4rs.yaml", Default::default())
+            .map_err(|e|anyhow!("初始化日志组件异常 {e}"))
+    }else{
+        let config = Config::builder().appenders(
+            [console_appender(),file_appender(CONFIG_PATH)]
+        );
+        let root = Root::builder()
+            .appenders(["console","file"])
+            .build(DEFAULT_LEVEL);
+        log4rs::init_config(config.build(root).unwrap())
+            .map(|_|())
+            .map_err(|e|anyhow!("初始化日志组件异常 {e}"))
+    };
+    if let Err(e) = result {
+        eprintln!("{:?}", e);
+    };
+}
+
+fn console_appender() -> Appender {
+    Appender::builder().build(
+        "console",
+        Box::new(
+            ConsoleAppender::builder()
+                .encoder(Box::new(PatternEncoder::new(LOG_PATTERN)))
+                .build(),
+        ),
+    )
+}
+fn file_appender<P : AsRef<Path>>(p: P) -> Appender {
+    Appender::builder().build(
+        "file",
+        Box::new(
+            FileAppender::builder()
+                .encoder(Box::new(PatternEncoder::new(LOG_PATTERN)))
+                .build(p).unwrap(),
+        ),
+    )
+}
