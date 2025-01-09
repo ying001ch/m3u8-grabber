@@ -13,6 +13,7 @@ use crate::use_cmd;
 
 const LOG_PATTERN: &str = "[{d(%Y-%m-%dT%H:%M:%S%.3f)} {h({l}):<5.5} {T} {M}] {m}{n}";
 const CONFIG_PATH: &str = "log4rs.yaml";
+const LOG_FILE: &str = "log/running.log";
 const DEFAULT_LEVEL : LevelFilter = LevelFilter::Debug;
 pub fn run() {
     let result:anyhow::Result<_> = if use_cmd() {
@@ -26,11 +27,11 @@ pub fn run() {
         log4rs::init_config(config.build(root).unwrap()).map(|_|())
             .map_err(|e|anyhow!("初始化日志组件异常 {e}"))
     } else if Path::new(CONFIG_PATH).exists(){
-        log4rs::init_file("log4rs.yaml", Default::default())
+        log4rs::init_file(CONFIG_PATH, Default::default())
             .map_err(|e|anyhow!("初始化日志组件异常 {e}"))
     }else{
         let config = Config::builder().appenders(
-            [console_appender(),file_appender(CONFIG_PATH)]
+            [console_appender(),file_appender(LOG_FILE)]
         );
         let root = Root::builder()
             .appenders(["console","file"])
