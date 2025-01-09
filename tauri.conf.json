@@ -34,7 +34,7 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": [],
+      "resources": ["log4rs.yaml"],
       "shortDescription": "",
       "targets": "all",
       "windows": {
