@@ -112,7 +112,10 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 
         //合并片段
         if all_success && !param.no_combine {
-            combine::combine_clip(temp_path, save_path,param.combine_type, false).unwrap();
+            let _ = combine::combine_clip(temp_path, save_path,param.combine_type, false)
+                .inspect_err(|e|{
+                    eprintln!("合并片段出错：{}", e);
+                });
         }
     };
     if async_task{

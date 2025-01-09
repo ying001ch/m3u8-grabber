@@ -1,7 +1,7 @@
-use std::{env, io::{Read, Write}, process::{Command, Stdio}, string, sync::Arc, thread};
+use std::{env, io::{Read, Write}, path::Path, process::{Command, Stdio}, string, sync::Arc, thread};
 use std::fs::ReadDir;
 
-use anyhow::{Result, Context, bail};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::config;
 
@@ -15,7 +15,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
 
     //判断使用二进制合并还是 ffmpeg
     if comb_type == config::COMB_BIN {
-        return bin_combine(clip_dir, save_path, async_task);
+        return bin_combine(clip_dir, save_path.as_ref(), async_task);
     }
 
     // 1. 检测环境变量
@@ -67,7 +67,7 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
     }
 }
 
-fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<(), anyhow::Error> {
+fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(), anyhow::Error> {
     println!("将使用二进制合并！");
 
     // 获取所有视频文件
@@ -82,7 +82,10 @@ fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<()
     }
 
     // 合并文件（简化处理，实际可能需要使用特定库）
-    let mut output_file = std::fs::File::create(&save_path).context("Failed to create the output file")?;
+    if !save_path.parent().ok_or_else(||anyhow!("save_path parent now exists"))?.exists(){
+        std::fs::create_dir_all(save_path.parent().unwrap()).context("创建输出目录失败")?;
+    }
+    let mut output_file = std::fs::File::create(save_path).context("Failed to create the output file")?;
 
     let cd = clip_dir.to_string();
     let handler = move || {
@@ -112,7 +115,7 @@ fn bin_combine(clip_dir: &str, save_path: String, async_task: bool) -> Result<()
         handler()?;
     }
 
-    println!("Video files have been successfully combined into {}", save_path);
+    println!("Video files have been successfully combined into {:?}", save_path);
     Ok(())
 }
 

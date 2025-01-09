@@ -1,5 +1,6 @@
 use core::panic;
 use std::collections::hash_map::DefaultHasher;
+use std::path::Path;
 use std::{default, env};
 use std::error::Error;
 use std::fmt::format;
@@ -74,7 +75,7 @@ impl DownParam {
     }
 }
 //M3u8文件参数
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct M3u8Entity{
     // content: String,
     pub method: String,
@@ -88,38 +89,32 @@ pub struct M3u8Entity{
     pub temp_path: String
 }
 impl M3u8Entity {
-    pub fn default() -> Self{
-        let method="".to_string();
-        let key_url="".to_string();
-        let key=[0;16];
-        let iv=[0;16];
-        let tt = "".to_string();
-        return M3u8Entity{
-            clip_urls: vec![],
-            url_prefix: None,
-            method,
-            key_url,
-            key,
-            iv,
-            save_path: "".to_string(),
-            temp_path: tt
-        };
-    }
     pub fn from(param: &DownParam) -> Result<M3u8Entity> {
-        let content;
         let m3u8_file = param.m3u8_file.as_ref();
+        let content = 
         if m3u8_file.is_some() && !m3u8_file.unwrap().is_empty(){
-            content = std::fs::read_to_string(m3u8_file.unwrap())?;
+            std::fs::read_to_string(m3u8_file.unwrap())?
         } else {
             //1. 解析m3u8文件
             let m3u8_url = param.address.as_str();
-            content = http_util::query_text(m3u8_url)?;
-        }
+            http_util::query_text(m3u8_url)?
+        };
 
 
         // let mut clip_urls = vec![];
         let mut entity = Self::default();
-        entity.temp_path = cal_hash(&param.address);
+        // temp_path
+        entity.temp_path = param.temp_path.clone()
+            .filter(|f|!f.is_empty())
+            .unwrap_or_else(||cal_hash(&param.address));
+
+        if !Path::new(&entity.temp_path).exists() {
+            std::fs::create_dir_all(&entity.temp_path)
+                .context(format!("create temp path failed. {}", &entity.temp_path))?;
+        }
+        println!("temp_path : {}", &entity.temp_path);
+
+        // 解析key 和 片段地址
         let lines  = content.lines();
         for li in lines {
             if li.contains("EXT-X-KEY"){
@@ -129,30 +124,16 @@ impl M3u8Entity {
                 entity.clip_urls.push(li.to_string());
             }
         }
-        if entity.clip_urls.len()==0{
-            //TODO 
+        if entity.clip_urls.is_empty(){
             bail!(format!("M3U8 元信息解析错误，未解析到视频片段信息。content: \n{}", &content[0..200]));
         }
-        if entity.key_url.len()==0 {
+        if entity.key_url.is_empty(){
             println!("未发现密钥信息, 将不进行解密！");
         }
         println!("clip num: {}", entity.clip_urls.len());
-        // temp_path
-        param.temp_path.as_ref().filter(|f|!f.is_empty())
-            .map(|f|{
-                entity.temp_path = f.to_string();
-            });
-        // if let Some(t) = param.temp_path.as_ref().filter(|f|!f.is_empty()){
-        //     entity.temp_path = t.to_string();
-        // }
 
-        if !dir_exists(&entity.temp_path) {
-            std::fs::create_dir(&entity.temp_path)
-                .context(format!("create temp path failed. {}", &entity.temp_path))?;
-        }
-        println!("temp_path : {}", &entity.temp_path);
 
-        entity.save_path = param.save_path.to_string();
+        entity.save_path = param.save_path.to_owned();
 
         //----------------------------------------------------------------
         entity.process(param)?;
@@ -203,11 +184,6 @@ impl M3u8Entity {
     pub fn clip_num(&self) -> usize{
         self.clip_urls.len()
     }
-}
-fn dir_exists(dir_path: &str)-> bool{
-    let dir_ex = std::fs::read_dir(dir_path);
-    println!("file_exists f={}, res: {}", dir_path, dir_ex.is_ok());
-    dir_ex.is_ok()
 }
 fn parse_key(mm: &mut M3u8Entity, line: &str) {
     let (_k, vv) = line.split_once(":").unwrap();
