@@ -5,7 +5,6 @@ use std::{vec};
 use M3u8_Grabber::*;
 use M3u8Item::{DownParam};
 
-mod Test;
 mod gui;
 
 // #[tokio::main]
