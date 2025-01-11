@@ -1,7 +1,7 @@
 use anyhow::{Result, bail, anyhow};
 use bytes::Bytes;
 use reqwest::blocking::{Client, Response};
-use std::{env, io::{Read, Write}, time::Duration, sync::{Mutex, Arc}};
+use std::{env, fmt::Debug, io::{Read, Write}, sync::{Arc, Mutex}, time::Duration};
 use crate::{async_runtime::{self, block_on}, config};
 
 /// 静态变量
@@ -22,13 +22,23 @@ pub fn main() {
     fc();
     println!("end..");
 }
-pub async fn query_bytes_async(url: &str) ->std::result::Result<Bytes, String> {
+pub async fn query_bytes_async<K,V>(url: &str, header: Option<&[(K, V)]>) ->std::result::Result<Bytes, String> 
+where 
+    K: AsRef<str> + Debug,
+    V: AsRef<str> + Debug
+    {
     let client = get_client2();
     let mut req_builder = client.get(url);
-    let head = get_headers();
-    for h in head {
+    let global_head = get_headers();
+    for h in global_head {
         req_builder = req_builder.header(&h.0, &h.1);
     }
+    if let Some(header) = header {
+        log::debug!("自定义请求头：{:?}", header);
+        for (k,v) in header {
+            req_builder = req_builder.header(k.as_ref(), v.as_ref());
+        };
+    };
     let body = client.execute(req_builder.build().unwrap()).await;
     match body {
         Ok(res) => {
@@ -44,7 +54,7 @@ pub async fn query_bytes_async(url: &str) ->std::result::Result<Bytes, String> {
     }
 }
 pub fn query_bytes(url: &str) ->anyhow::Result<Bytes> {
-    let f = query_bytes_async(url);
+    let f = query_bytes_async::<&str,&str>(url, None);
 
     async_runtime::block_on(f).map_err(|e|anyhow!("{}",e))
 }

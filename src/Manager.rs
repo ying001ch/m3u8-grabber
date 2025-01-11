@@ -121,19 +121,21 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
 }
 ///异步下载方法
 async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
-    let clip_urls =  &entity.clip_urls;
+    let clips = Arc::new(entity.media_play_list.segments.clone());
     let temp_path = &entity.temp_path;
     let nd = entity.need_decode();
     let key = entity.key;
     let iv = entity.iv;
+    let multi_key = entity.multi_key();
+    log::info!("multi_key:{}", multi_key);
 
     let prefix = entity.url_prefix.as_ref().unwrap();
     let mut join_v = vec![];
     let semaphore = Arc::new(Semaphore::new(config::get_work_num()));
     let err_vec: Vec<usize> = vec![];
     let err_clips = Arc::new(Mutex::new(err_vec));
-    for idx in 0..clip_urls.len() {
-        let clip_clone = clip_urls[idx].clone();
+    for idx in 0..clips.len() {
+        let clips = Arc::clone(&clips);
         // let clip_clone = clip.clone();
         let prefix = prefix.to_string();
         let temp_path = temp_path.clone();
@@ -148,10 +150,20 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                 return;
             }
 
-            let down_url = prefix.to_string() + clip_clone.as_str();
+            let clip_url = &clips[idx].uri;
+            let down_url = if !clip_url.starts_with("http"){
+                prefix.to_string() + clip_url
+            }else{
+                clip_url.to_string()
+            };
             // println!("--> {}", down_url);
+            let mut headers = vec![];
+            if let Some(range) = clips[idx].byte_range.as_ref(){
+                let offset = range.offset.unwrap_or(0);
+                headers.push(("range", format!("bytes={}-{}", offset, offset+range.length - 1)));
+            }
 
-            let mut bytes = http_util::query_bytes_async(&down_url).await;
+            let mut bytes = http_util::query_bytes_async(&down_url, Some(&headers)).await;
             let mut err_num = 1;
             while let Err(err) = bytes {
                 log::error!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
@@ -160,14 +172,41 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                     return;
                 }
                 // put_retry(&mut retry_num, &clone_pkg, clip_index, &clip);
-                bytes = http_util::query_bytes_async(&down_url).await;
+                bytes = http_util::query_bytes_async(&down_url, Some(&headers)).await;
                 err_num += 1;
             }
             log::info!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
             //写入文件
             let origin_bytes;
             let result: &[u8] = if nd {
-                let res = aes_util::decrypt(bytes.as_ref().unwrap(), &key, &iv);
+                // 如果每个key和 iv都不一样，那么就使用单独的key和iv
+                let iv_own;
+                let key_own;
+                let mut k:&[u8] = &key;
+                let mut iv:&[u8] = &iv;
+                if multi_key{
+                    let new_key = clips[idx].key.as_ref().unwrap();
+                    let iv_s = new_key.iv.as_ref().unwrap();
+                    log::debug!("new iv_s={}", iv_s);
+                    iv_own = M3u8Item::hex2_byte(iv_s)
+                        .expect(format!("解析片段iv 出错 iv:{}", iv_s).as_str());
+                    iv = &iv_own;
+                    //TODO key 
+                    let key_uri = new_key.uri.as_ref().unwrap();
+                    let key_res =  http_util::query_bytes_async::<&str,&str>(key_uri, None).await;
+                    match key_res {
+                        Ok(kb)=> {
+                            log::debug!("new key bytes:{:?}", kb);
+                            key_own = kb;
+                            k = &key_own;
+                        },
+                        Err(err)=>{
+                            log::error!("片段({}) query key_uri err:{}", idx, err);
+                            return;
+                        }
+                    }
+                }
+                let res = aes_util::decrypt(bytes.as_ref().unwrap(), k, iv);
                 if let Ok(v) = res{
                     origin_bytes = v;
                     &origin_bytes

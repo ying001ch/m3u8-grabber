@@ -9,7 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
 use crate::config;
-use anyhow::{anyhow, bail, Context, Ok, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use m3u8_rs::MediaPlaylist;
 use serde::{Serialize, Deserialize};
 
 //下载任务 参数
@@ -77,12 +78,12 @@ impl DownParam {
 #[derive(Debug,Default)]
 pub struct M3u8Entity{
     // content: String,
-    pub method: String,
-    pub key_url: String,
+    pub media_play_list: MediaPlaylist,
     pub key: [u8;16],
     pub iv: [u8;16],
+    pub key_num: usize,
+
     
-    pub clip_urls: Vec<String>,
     pub url_prefix: Option<String>,
     pub save_path: String,
     pub temp_path: String
@@ -112,27 +113,34 @@ impl M3u8Entity {
                 .context(format!("create temp path failed. {}", &entity.temp_path))?;
         }
         log::info!("temp_path : {}", &entity.temp_path);
+        // save_path
+        entity.save_path = param.save_path.to_owned();
 
-        // 解析key 和 片段地址
-        let lines  = content.lines();
-        for li in lines {
-            if li.contains("EXT-X-KEY"){
-                // key method iv
-                parse_key(&mut entity, li);
-            }else if li.contains(".ts")|| li.contains(".jpeg") ||li.contains(".jpg") {
-                entity.clip_urls.push(li.to_string());
-            }
+        // 使用m3u8-rs解析m3u8文件
+    // 使用m3u8-rs解析m3u8文件
+        let m3u8_result = m3u8_rs::parse_media_playlist_res(content.as_bytes());
+        match m3u8_result {
+            Ok(play_list) => {
+                entity.media_play_list = play_list;
+            },
+            Err(e) => {
+                bail!("M3U8 解析错误: {}", e)
+            },
         }
-        if entity.clip_urls.is_empty(){
+
+        let clips = &entity.media_play_list.segments;
+        if clips.is_empty(){
             bail!(format!("M3U8 元信息解析错误，未解析到视频片段信息。content: \n{}", &content[0..200]));
         }
-        if entity.key_url.is_empty(){
+        if clips[0].key.as_ref().filter(|&k|k.uri.is_some()).is_none(){
             log::info!("未发现密钥信息, 将不进行解密！");
         }
-        log::info!("clip num: {}", entity.clip_urls.len());
-
-
-        entity.save_path = param.save_path.to_owned();
+        entity.key_num = clips.iter()
+            .filter(|&e|e.key.is_some())
+            .map(|f|f.key.as_ref().unwrap())
+            .filter(|f|f.uri.is_some())
+            .count();
+        log::info!("clip num: {}", clips.len());
 
         //----------------------------------------------------------------
         entity.process(param)?;
@@ -165,23 +173,30 @@ impl M3u8Entity {
             return Ok(());
         }
 
-        if !(&self.key_url).starts_with("http") {
-            self.key_url = self.url_prefix.as_ref().unwrap().to_string() + &self.key_url;
+        let first_key = self.media_play_list.segments[0].key.as_ref().unwrap();
+        let mut key_url = first_key.uri.clone().unwrap();
+        if !&key_url.starts_with("http") {
+            key_url = self.url_prefix.as_ref().unwrap().to_string() + &key_url;
         }
-        log::info!("req_key key_url={}", &self.key_url);
-        let raw_bytes = http_util::query_bytes(&self.key_url)?;
+        log::info!("req_key key_url={}", key_url);
+        let raw_bytes = http_util::query_bytes(&key_url)?;
         if raw_bytes.len() != 16 {
             bail!("requested key length is not 16")
         }
         self.key.copy_from_slice(&raw_bytes);
+
+        self.iv = hex2_byte(first_key.iv.as_ref().unwrap())?;
         log::info!("key_bytes={:?}", self.key);
         Ok(())
     }
     pub fn need_decode(&self)-> bool{
-        !self.key_url.is_empty()
+        self.key_num > 0
+    }
+    pub fn multi_key(&self)-> bool{
+        self.key_num > 1
     }
     pub fn clip_num(&self) -> usize{
-        self.clip_urls.len()
+        self.media_play_list.segments.len()
     }
 }
 fn parse_key(mm: &mut M3u8Entity, line: &str) {
@@ -192,9 +207,9 @@ fn parse_key(mm: &mut M3u8Entity, line: &str) {
         let (_x,y) = entry.split_once("=").unwrap();
         let val = y;
         if entry.starts_with("METHOD") {
-            mm.method = val.to_string();
+            // mm.method = val.to_string();
         }else if entry.starts_with("URI") {
-            mm.key_url = val[1..val.len()-1].to_string();
+            // mm.key_url = val[1..val.len()-1].to_string();
         }else if entry.starts_with("IV") {
             mm.iv = hex2_byte(val).unwrap();
         }
