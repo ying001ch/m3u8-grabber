@@ -1,5 +1,7 @@
 use anyhow::anyhow;
 use anyhow::bail;
+use bytes::Bytes;
+use m3u8_rs::Key;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
@@ -59,32 +61,11 @@ fn validate_param(param: &DownParam)-> Result<()>{
 fn run(param: DownParam, async_task: bool) -> Result<()>{
     //设置代理 
     param.proxy.as_ref()
-        .filter(|f|!f.is_empty())
-        .inspect(|&p|config::set_proxys(p));
-    //设置请求头
-    param.headers.as_ref()
         .filter(|&f|!f.is_empty())
-        .map(|h|{
-            let v = h.split(";")
-                .map(|h|{
-                    match h.find(':') {
-                        Some(idx) => {
-                            let k = &h[0..idx];
-                            let v = &h[idx+1..h.len()];
-                            (k.trim().to_string(),v.trim().to_string())
-                        },
-                        None => {
-                            (h.trim().to_string(),String::new())
-                        }
-                    }
-                })
-                .collect();
-            log::info!("headers is :{:?}", v);
-            config::set_headers(v);
-        });
+        .inspect(|&p|config::set_proxys(p));
+   
     //set workerNum
     config::set_work_num(param.worker_num);
-    
     
     let entity = M3u8Item::M3u8Entity::from(&param)?;
     config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
@@ -127,6 +108,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
     let key = entity.key;
     let iv = entity.iv;
     let multi_key = entity.multi_key();
+    let headers = Arc::new(entity.headers.clone());
     log::info!("multi_key:{}", multi_key);
 
     let prefix = entity.url_prefix.as_ref().unwrap();
@@ -140,6 +122,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         let prefix = prefix.to_string();
         let temp_path = temp_path.clone();
         let sem = semaphore.clone();
+        let headers = Arc::clone(&headers);
         let err_clips = Arc::clone(&err_clips);
         let handler = tokio::spawn(async move{
             let _permit = sem.acquire().await.unwrap();
@@ -150,20 +133,23 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                 return;
             }
 
+            // 拼接下载地址
             let clip_url = &clips[idx].uri;
             let down_url = if !clip_url.starts_with("http"){
                 prefix.to_string() + clip_url
             }else{
                 clip_url.to_string()
             };
-            // println!("--> {}", down_url);
-            let mut headers = vec![];
+            // 设置请求头
+            let mut real_headers = vec![];
+            real_headers.extend_from_slice(&headers);
             if let Some(range) = clips[idx].byte_range.as_ref(){
                 let offset = range.offset.unwrap_or(0);
-                headers.push(("range", format!("bytes={}-{}", offset, offset+range.length - 1)));
+                real_headers.push(("range".to_owned(), format!("bytes={}-{}", offset, offset+range.length - 1)));
             }
 
-            let mut bytes = http_util::query_bytes_async(&down_url, Some(&headers)).await;
+            let mut bytes = http_util::query_bytes_async(&down_url, Some(&real_headers)).await;
+            //出错充实5次
             let mut err_num = 1;
             while let Err(err) = bytes {
                 log::error!("下载片段({})出错：{}, err_num={}", idx, err, err_num);
@@ -176,37 +162,24 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
                 err_num += 1;
             }
             log::info!("片段({})下载完成 len: {}", idx, bytes.as_ref().map(|op|op.len()).unwrap());
-            //写入文件
+            //解密文件
             let origin_bytes;
             let result: &[u8] = if nd {
                 // 如果每个key和 iv都不一样，那么就使用单独的key和iv
-                let iv_own;
-                let key_own;
-                let mut k:&[u8] = &key;
-                let mut iv:&[u8] = &iv;
+                let mut iv_own = iv;
+                let mut key_own = key;
                 if multi_key{
-                    let new_key = clips[idx].key.as_ref().unwrap();
-                    let iv_s = new_key.iv.as_ref().unwrap();
-                    log::debug!("new iv_s={}", iv_s);
-                    iv_own = M3u8Item::hex2_byte(iv_s)
-                        .expect(format!("解析片段iv 出错 iv:{}", iv_s).as_str());
-                    iv = &iv_own;
-                    //TODO key 
-                    let key_uri = new_key.uri.as_ref().unwrap();
-                    let key_res =  http_util::query_bytes_async::<&str,&str>(key_uri, None).await;
-                    match key_res {
-                        Ok(kb)=> {
-                            log::debug!("new key bytes:{:?}", kb);
-                            key_own = kb;
-                            k = &key_own;
+                    match get_new_key_iv(clips[idx].key.as_ref().unwrap(), idx).await{
+                        Ok((key, iv)) => {
+                            key_own.clone_from_slice(&key);
+                            iv_own = iv;
+                            assert_eq!(*key.slice(0..key.len()), key_own);
                         },
-                        Err(err)=>{
-                            log::error!("片段({}) query key_uri err:{}", idx, err);
-                            return;
-                        }
+                        Err(_) => return,
                     }
                 }
-                let res = aes_util::decrypt(bytes.as_ref().unwrap(), k, iv);
+                log::debug!("iv_own:{:?} key_own:{:?}", iv_own, &key_own);
+                let res = aes_util::decrypt(bytes.as_ref().unwrap(), &key_own, &iv_own);
                 if let Ok(v) = res{
                     origin_bytes = v;
                     &origin_bytes
@@ -255,6 +228,27 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         return all_success;
     }
    return false;
+}
+
+// 在 aes_util 模块中添加此函数
+pub async fn get_new_key_iv(key: &Key, idx: usize) -> Result<(Bytes, [u8;16])> {
+    let iv_s = key.iv.as_ref().unwrap();
+    log::debug!("new iv_s={}", iv_s);
+    let iv_own = M3u8Item::hex2_byte(iv_s)
+        .expect(format!("解析片段iv 出错 iv:{}", iv_s).as_str());
+    //TODO key 
+    let key_uri = key.uri.as_ref().unwrap();
+    let key_res =  http_util::query_bytes_async::<&str,&str>(key_uri, None).await;
+    match key_res {
+        Ok(kb)=> {
+            log::debug!("new key bytes:{:?} length={}", kb, kb.len());
+            return Ok((kb, iv_own));
+        },
+        Err(err)=>{
+            log::error!("片段({}) query key_uri err:{}", idx, err);
+            bail!("片段({}) query key_uri err:{}", idx, err);
+        }
+    }
 }
 
 /// 构建文件名前缀

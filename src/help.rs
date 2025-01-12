@@ -9,7 +9,7 @@ Options:
     --combine_type=          合并类型 1-二进制合并 2-ffmpeg合并
     --temp="temp_path"      设置临时文件夹位置
     --proxy="proxy_url"     设置代理
-    --H="key:v;k2:v2"       设置请求头,多个用;分隔
+    --H="key:v ;; k2:v2"       设置请求头,多个用';;'分隔
     --key="D2B"             设置解密key,16进制字符串
     --worker=16             设置下载并发数
     --noCombine             下载视频片段不合并

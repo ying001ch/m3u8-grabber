@@ -2,7 +2,8 @@
 # will have compiled files and executables
 /target/
 node_modules/
-/*/*.ts
+*.ts
 /.idea
 *.mp4
 /log
+*.m3u8

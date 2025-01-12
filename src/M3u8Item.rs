@@ -83,7 +83,7 @@ pub struct M3u8Entity{
     pub iv: [u8;16],
     pub key_num: usize,
 
-    
+    pub headers: Vec<(String,String)>,
     pub url_prefix: Option<String>,
     pub save_path: String,
     pub temp_path: String
@@ -144,6 +144,29 @@ impl M3u8Entity {
 
         //----------------------------------------------------------------
         entity.process(param)?;
+
+         //设置请求头
+        param.headers.as_ref()
+            .filter(|&f|!f.is_empty())
+            .inspect(|&h|{
+                let v = h.split(";;")
+                    .map(|h|{
+                        match h.find(':') {
+                            Some(idx) => {
+                                let k = &h[0..idx];
+                                let v = &h[idx+1..h.len()];
+                                (k.trim().to_string(),v.trim().to_string())
+                            },
+                            None => {
+                                (h.trim().to_string(),String::new())
+                            }
+                        }
+                    })
+                    .collect();
+                log::info!("headers is :{:?}", v);
+                entity.headers = v;
+            });
+        
         Ok(entity)
     }
     /**

@@ -29,17 +29,14 @@ where
     {
     let client = get_client2();
     let mut req_builder = client.get(url);
-    let global_head = get_headers();
-    for h in global_head {
-        req_builder = req_builder.header(&h.0, &h.1);
-    }
     if let Some(header) = header {
         log::debug!("自定义请求头：{:?}", header);
         for (k,v) in header {
             req_builder = req_builder.header(k.as_ref(), v.as_ref());
         };
     };
-    let body = client.execute(req_builder.build().unwrap()).await;
+    
+    let body = req_builder.send().await;
     match body {
         Ok(res) => {
             if !res.status().is_success() {
@@ -105,7 +102,4 @@ pub fn update_client(){
 }
 fn get_proxy()-> String {
     config::get_proxys()
-}
-fn get_headers() -> Vec<(String, String)>{
-    config::get_headers()
 }

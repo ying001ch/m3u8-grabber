@@ -14,7 +14,6 @@ use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
     work_num: 8,
     proxys: None,
-    headers: vec![],
 });
 lazy_static! {
     /// 任务集合
@@ -30,7 +29,6 @@ pub const COMB_FFMPEG: usize = 2;  //ffmpeg合并视频
 pub struct GlobalConfig{
     work_num: usize,
     proxys: Option<String>,
-    headers: Vec<(String,String)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default,Serialize)]
@@ -82,25 +80,18 @@ pub fn get_work_num() -> usize {
     GLOBAL_CONFIG.read().unwrap().work_num
 }
 //----------------------------------------------------------------
-pub fn set_proxys(ss: &str) {
+pub fn set_proxys(proxy_str: &str) {
     {
         let mut a = GLOBAL_CONFIG.write().unwrap();
-        a.proxys = Some(ss.to_owned());
+        a.proxys = Some(proxy_str.to_owned());
     }
     http_util::update_client();
-    log::info!("=========> 更新proxy成功： proxy:{}",ss);
+    log::info!("=========> 更新proxy成功： proxy:{}",proxy_str);
 }
 pub fn get_proxys() -> String {
     GLOBAL_CONFIG.read().unwrap().proxys.clone().unwrap_or("".to_string())
 }
 //----------------------------------------------------------------
-pub fn set_headers(v: Vec<(String,String)>) {
-    let mut a = GLOBAL_CONFIG.write().unwrap();
-    a.headers = v;
-}
-pub fn get_headers() -> Vec<(String,String)> {
-     GLOBAL_CONFIG.read().unwrap().headers.clone()
-}
 pub fn get_task_view() -> Vec<TaskView> {
     let guard = TASK_MAP.read().unwrap();
     let views:Vec<TaskView> = guard.values()
