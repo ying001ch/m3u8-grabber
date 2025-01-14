@@ -136,9 +136,11 @@ impl M3u8Entity {
             log::info!("未发现密钥信息, 将不进行解密！");
         }
         entity.key_num = clips.iter()
-            .filter(|&e|e.key.is_some())
-            .map(|f|f.key.as_ref().unwrap())
-            .filter(|f|f.uri.is_some())
+            .filter(|&e|
+                e.key.as_ref()
+                    .and_then(|f|f.uri.as_ref())
+                    .is_some()
+            )
             .count();
         log::info!("clip num: {}", clips.len());
 
