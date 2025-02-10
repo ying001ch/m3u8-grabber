@@ -1,128 +1,37 @@
 <template>
-    <el-row :gutter="5">
-      <!-- <el-col :span="4">
-        <div class="grid-content ep-bg-purple"> &nbsp;</div>
-      </el-col> -->
-      <el-col :span="12">
-        <el-container>
-          <el-header><span class="header">M3u8下载器</span></el-header>
-          <el-main>
-            <div class="grid-content ep-bg-purple">
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> M3u8地址</span>
-                </el-col>
-                <el-col :span="19" class="labal-col">
-                  <el-input placeholder="请输入M3u8地址 http://*.*/*.m3u8" v-model="param.address"  clearable />
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> 保存路径</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="请输入下载路径" v-model="param.save_path" clearable></el-input>
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> 临时目录</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="视频片段的临时存放目录，为空时使用时间戳生成" v-model="param.temp_path" clearable></el-input>
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> 请求头</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="请输入http header,多条使用分号隔开" v-model="param.headers" clearable></el-input>
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> M3u8文件目录</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="本地m3u8文件路径" v-model="param.m3u8_file" clearable/>
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> 解密Key</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="请输入解密Key" v-model="param.key_str" clearable></el-input>
-                </el-col>
-              </el-row>
-              <!-- 全局设置 -->
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> Http代理</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="请输入http代理" v-model="param.proxy" clearable></el-input>
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> 并行任务数</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="下载线程数" v-model.number="param.worker_num" type="number" clearable></el-input>
-                </el-col>
-              </el-row>
-              <el-row :gutter="3">
-                <el-col :span="5" class="labal-col">
-                  <span class=""> 片段目录</span>
-                </el-col>
-                <el-col :span="19">
-                  <el-input placeholder="输入要合并的视频片段目录" v-model="param.combine_dir" clearable></el-input>
-                </el-col>
-              </el-row>
-              <!-- 合并设置 -->
-              只下载不合并<el-switch v-model="param.no_combine" />
-              合并方式<el-select v-model="param.combine_type" placeholder="Select"
-                      size="large"
-                      style="width: 240px"
-                    >
-                      <el-option  v-for="item in options"
-                          :key="item.value"
-                          :label="item.label"
-                          :value="item.value"/>
-                    </el-select>
-            </div>
-          </el-main>
-          <el-footer>
-            <el-button type="primary" @click="submitTask">开始下载</el-button>
-            <el-button type="primary" @click="combine">合并片段</el-button>
-            <el-button type="primary" @click="pause">暂停下载</el-button>
-          </el-footer>
-        </el-container>
-      </el-col>
-      <el-col :span="12">
-        <div class="grid-content ep-bg-purple progress-container" >
-            <!-- 进度条 -->
-            <div v-for="(task,index) in tasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
-                @click="sel(task.task_id)">
-                <span>{{task.file_name }}</span> 
-                <span style="float: right;">{{task.finished }}/{{task.total }}</span>
-                <el-progress 
-                    :text-inside="true" :stroke-width="30" :percentage="task.progress*100" 
-                    :status="status_transfer(task.status)">
-                  <span>已完成 {{(task.progress*100).toFixed(2)}}%</span>
-                  <span v-if="task.err_msg">Error: {{task.err_msg}}</span>
-                </el-progress>
-            </div>
-        </div>
-      </el-col>
-    </el-row>
+  <div class="main-page">
+    <el-tabs :tab-position="'left'" style="" class="demo-tabs">
+      <el-tab-pane label="download">
+          <Download/>
+      </el-tab-pane>
+      <el-tab-pane label="settings">
+          <Settings/>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
 </template>
 
-<script>
+<script setup>
 import { invoke } from '@tauri-apps/api'
 import { ElMessageBox } from 'element-plus'
+import { ref } from 'vue';
+import Download from './components/Download.vue';
+import Settings from './components/Settings.vue';
+
+
+const dialogRef = ref(null);
+const addressList = ref([]);
+
+// 打开弹窗
+const openDialog = () => {
+  dialogRef.value.open();
+};
+
+// 处理提交数据
+const handleSubmit = (formData) => {
+  addressList.value.push(formData);
+};
+
 //进度条状态
 const success = 'success' 
 const exception = 'exception' 
