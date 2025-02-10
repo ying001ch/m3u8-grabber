@@ -27,6 +27,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { invoke } from '@tauri-apps/api'
 
 const settings = reactive({
     proxy: '',
@@ -46,5 +47,10 @@ const options = [
 
 const saveSettings = () => {
     console.log("saveSettings: "+ JSON.stringify(settings))
+
+    invoke('saveSettings', {...settings})
+        .then((response) => {
+            msgBox(response)
+        })
 }
 </script>

@@ -124,7 +124,7 @@ impl M3u8Entity {
                 entity.media_play_list = play_list;
             },
             Err(e) => {
-                bail!("M3U8 解析错误: {}", e)
+                bail!("M3U8 解析错误: {}", &e.to_string()[..100])
             },
         }
 

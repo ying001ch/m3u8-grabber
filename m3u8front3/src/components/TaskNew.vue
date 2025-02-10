@@ -31,6 +31,10 @@ const form = reactive(
         address:"",
         save_path:"",
         headers:"",
+        worker_num:16,
+        task_type:1,
+        combine_type:1,
+        no_combine:true,
     }
 );
 const open = () => {
@@ -49,20 +53,21 @@ const submitTask = () => {
     console.log('submit');
     console.log('submit： '+ JSON.stringify(form));
 
-    if(!this.form.address || !this.form.save_path){
+    if(!form.address || !form.save_path){
         msgBox('地址和保存路径必填')
         return
       }
-      this.signal = ''
+    //   this.signal = ''
       let that = this
-      this.form.task_type = 1;
-      let pam = JSON.stringify(this.form)
+    //   form.task_type = 1;
+      let pam = JSON.stringify(form)
       console.log('sub pam: '+pam)
       invoke('submit_task', { paramStr: pam })
         .then((response) => {
           msgBox(response)
            //触发获取进度通知
            emit("submit")
+           dialogShow.value = false;
         }).catch((error) => {
           msgBox(error)
         })
