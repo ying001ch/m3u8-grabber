@@ -60,12 +60,12 @@ fn validate_param(param: &DownParam)-> Result<()>{
 /// 运行下载任务
 fn run(param: DownParam, async_task: bool) -> Result<()>{
     //设置代理 
-    param.proxy.as_ref()
-        .filter(|&f|!f.is_empty())
-        .inspect(|&p|config::set_proxys(p));
+    // param.proxy.as_ref()
+    //     .filter(|&f|!f.is_empty())
+    //     .inspect(|&p|config::set_proxys(p));
    
     //set workerNum
-    config::set_work_num(param.worker_num);
+    // config::set_work_num(param.worker_num);
     
     let entity = M3u8Item::M3u8Entity::from(&param)?;
     config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息

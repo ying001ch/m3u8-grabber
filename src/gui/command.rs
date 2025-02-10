@@ -2,6 +2,7 @@
 
 
 use anyhow::{Result};
+use M3u8_Grabber::config::GlobalConfig;
 
 use crate::M3u8Item::{DownParam, M3u8Entity};
 use crate::config::{self, Signal};
@@ -16,6 +17,7 @@ pub fn start_tauri(){
       combine_cmd,
       pause,
       get_progress,
+      save_settings,
   ])
   .run(tauri::generate_context!())
   .expect("error while running tauri application");
@@ -48,4 +50,10 @@ pub fn pause(task_hash: &str) -> Result<&str,String>{
 pub fn get_progress() -> Vec<TaskView>{
     // 刷新 任务状态
     return config::get_task_view();
+}
+#[tauri::command]
+pub fn save_settings(config: GlobalConfig) -> Result<&'static str,String>{
+    // 刷新 任务状态
+    config::set_global_settings(&config);
+    return Ok("保存成功");
 }

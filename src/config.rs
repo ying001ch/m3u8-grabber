@@ -4,7 +4,7 @@ use std::{sync::RwLock,collections::HashMap, mem::discriminant};
 use anyhow::{Result, anyhow, bail};
 use lazy_static::lazy_static;
 use tokio::{task::AbortHandle};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 
@@ -14,6 +14,7 @@ use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
     work_num: 8,
     proxys: None,
+    combine_type: COMB_BIN,
 });
 lazy_static! {
     /// 任务集合
@@ -26,9 +27,11 @@ pub const TASK_COM: usize = 2;  //合并视频
 pub const COMB_BIN: usize = 1; //二进制合并
 pub const COMB_FFMPEG: usize = 2;  //ffmpeg合并视频
 
+#[derive(Clone, Deserialize)]
 pub struct GlobalConfig{
     work_num: usize,
     proxys: Option<String>,
+    combine_type: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Default,Serialize)]
@@ -65,6 +68,10 @@ impl TaskState {
     }
 }
 //----------------------------------------------------------------
+pub fn set_global_settings(config: &GlobalConfig){
+    *GLOBAL_CONFIG.write().unwrap() = config.clone();
+    http_util::update_client();
+}
 pub fn set_work_num(work_num: usize) {
     let a = GLOBAL_CONFIG.write();
     match a {

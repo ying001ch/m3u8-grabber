@@ -5,7 +5,7 @@
                 <el-input v-model="settings.proxy"></el-input>
             </el-form-item>
             <el-form-item label="并发数" >
-                <el-input-number  v-model="settings.worker_num" :min="1" :max="100"/>
+                <el-input-number  v-model="settings.work_num" :min="1" :max="100"/>
             </el-form-item>
             <el-form-item label="合并方式" >
                 <el-select v-model="settings.combine_type" placeholder="Select"
@@ -28,10 +28,11 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { invoke } from '@tauri-apps/api'
+import { ElMessageBox } from 'element-plus'
 
 const settings = reactive({
     proxy: '',
-    worker_num: 16,
+    work_num: 16,
     combine_type: 1,
 })
 const options = [
@@ -48,9 +49,22 @@ const options = [
 const saveSettings = () => {
     console.log("saveSettings: "+ JSON.stringify(settings))
 
-    invoke('saveSettings', {...settings})
+    invoke('save_settings', {"config":{...settings}})
         .then((response) => {
             msgBox(response)
+        })
+}
+
+
+//-----
+function msgBox(msg){
+  ElMessageBox.alert(msg, {
+          // if you want to disable its autofocus
+          // autofocus: false,
+          confirmButtonText: 'OK',
+          callback: (action) => {
+            console.log('点击确认')
+          },
         })
 }
 </script>
