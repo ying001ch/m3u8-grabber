@@ -29,9 +29,9 @@ pub const COMB_FFMPEG: usize = 2;  //ffmpeg合并视频
 
 #[derive(Clone, Deserialize,Debug)]
 pub struct GlobalConfig{
-    work_num: usize,
-    proxy: Option<String>,
-    combine_type: usize,
+    pub work_num: usize,
+    pub proxy: Option<String>,
+    pub combine_type: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Default,Serialize)]

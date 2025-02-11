@@ -12,6 +12,7 @@ use anyhow::Result;
 use crate::aes_util;
 use crate::async_runtime;
 use crate::combine;
+use crate::config::GlobalConfig;
 use crate::config::Signal;
 use crate::http_util;
 use crate::M3u8Item;
@@ -29,6 +30,13 @@ use std::time::SystemTime;
 pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
     // 校验参数
     validate_param(&param)?;
+    if !async_task {
+        config::set_global_settings(&GlobalConfig{
+            work_num: param.worker_num,
+            proxy: param.proxy.clone(),
+            combine_type: param.combine_type,
+        });
+    }
     match param.task_type {
         //下载任务
         config::TASK_DOWN => {
@@ -39,7 +47,7 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
         config::TASK_COM => combine::combine_clip(
             param.combine_dir.unwrap().as_str(),
             &param.save_path.as_str(),
-            param.combine_type,
+            config::get_combine_type(),
             async_task),
         _=> bail!("任务类型不对"),
     }
@@ -69,13 +77,6 @@ fn validate_param(param: &DownParam)-> Result<()>{
 }
 /// 运行下载任务
 fn run(entity: M3u8Item::M3u8Entity, async_task: bool) -> Result<()>{
-    //设置代理 
-    // param.proxy.as_ref()
-    //     .filter(|&f|!f.is_empty())
-    //     .inspect(|&p|config::set_proxys(p));
-   
-    //set workerNum
-    // config::set_work_num(param.worker_num);
     config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
     let one = async move {
         let entity = &entity;

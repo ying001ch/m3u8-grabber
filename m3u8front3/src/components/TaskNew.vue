@@ -1,7 +1,7 @@
 <template>
     <div class="task_new">
         <el-dialog v-model="dialogShow" title="任务录入" width="600px" @close="resetForm">
-            <el-form :model="form" label-width="auto">
+            <el-form :model="form" label-width="auto" v-if="task_type==1">
                 <el-form-item label="地址" >
                     <el-input v-model="form.address" autocomplete="off"></el-input>
                 </el-form-item>
@@ -11,8 +11,23 @@
                 <el-form-item label="请求头" >
                     <el-input v-model="form.headers" autocomplete="off"></el-input>
                 </el-form-item>
+                <el-form-item label="解密key" >
+                    <el-input placeholder="请输入key的16进制字符串" v-model="form.key_str" clearable></el-input>
+                </el-form-item>
                 <el-form-item label="不合并" >
                   <el-switch v-model="form.no_combine" />
+                </el-form-item>
+                <el-form-item >
+                    <el-button type="primary" @click="submitTask">提交</el-button>
+                </el-form-item>
+            </el-form>
+
+            <el-form :model="form" label-width="auto" v-if="task_type==2">
+              <el-form-item label="片段目录" >
+                  <el-input placeholder="输入要合并的视频片段目录" v-model="form.combine_dir" clearable></el-input>
+              </el-form-item>
+                <el-form-item label="保存路径" >
+                    <el-input v-model="form.save_path" autocomplete="off"></el-input>
                 </el-form-item>
                 <el-form-item >
                     <el-button type="primary" @click="submitTask">提交</el-button>
@@ -28,40 +43,46 @@ import { reactive, ref } from 'vue';
 import { ElMessageBox } from 'element-plus'
 
 const dialogShow = ref(false);
+const task_type = ref(1);
 
 const form = reactive(
     {
         address:"",
         save_path:"",
+        combine_dir:"",
         headers:"",
-        worker_num:16,
+        key_str:"",
         task_type:1,
         no_combine:false,
     }
 );
-const open = () => {
-    console.log('open');
+const open = (task_type_) => {
+    console.log('open:'+task_type);
+    task_type.value = task_type_
     dialogShow.value = true;
 };
 const resetForm = () => {
     console.log('resetForm');
     Object.keys(form).forEach(key => {
-        console.log("key:" + key)
         delete form[key];
     });
+    form.address="";
 };
 const emit = defineEmits("submit")
 const submitTask = () => {
     console.log('submit');
     console.log('submit： '+ JSON.stringify(form));
 
-    if(!form.address || !form.save_path){
+    if(!form.save_path){
+        msgBox('地址和保存路径必填')
+        return
+      }
+    if(!form.address && task_type.value==1){
         msgBox('地址和保存路径必填')
         return
       }
     //   this.signal = ''
-      let that = this
-    //   form.task_type = 1;
+      form.task_type = task_type.value;
       let pam = JSON.stringify(form)
       console.log('sub pam: '+pam)
       invoke('submit_task', { paramStr: pam })

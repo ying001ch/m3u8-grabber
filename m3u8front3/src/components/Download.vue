@@ -1,6 +1,15 @@
 <template>
   <div>
-    <el-button type="primary" @click="newTask()">新建</el-button>
+    <el-dropdown split-button type="primary" @click="newTask(1)" @command="newTask(2)">
+        新建
+      <template #dropdown>
+          <el-dropdown-menu>
+          <el-dropdown-item command="2">合并</el-dropdown-item>
+          </el-dropdown-menu>
+      </template>
+    </el-dropdown>
+
+
     <el-button type="info" @click="pause">暂停</el-button>
     <el-button type="success" @click="resumeTask">继续</el-button>
     <el-button type="danger" @click="deleteTask">删除</el-button>
@@ -62,8 +71,8 @@ const status_transfer = (status) => {
 };
 
 const taskNewRef = ref(null);
-const newTask = () => {
-  taskNewRef.value.open();
+const newTask = (task_type) => {
+  taskNewRef.value.open(task_type);
 };
 const refresh_flag = ref(false);
 const refresh_list = (form) => {
