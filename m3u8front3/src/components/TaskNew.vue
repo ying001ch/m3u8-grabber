@@ -11,6 +11,9 @@
                 <el-form-item label="请求头" >
                     <el-input v-model="form.headers" autocomplete="off"></el-input>
                 </el-form-item>
+                <el-form-item label="不合并" >
+                  <el-switch v-model="form.no_combine" />
+                </el-form-item>
                 <el-form-item >
                     <el-button type="primary" @click="submitTask">提交</el-button>
                 </el-form-item>
@@ -33,8 +36,7 @@ const form = reactive(
         headers:"",
         worker_num:16,
         task_type:1,
-        combine_type:1,
-        no_combine:true,
+        no_combine:false,
     }
 );
 const open = () => {

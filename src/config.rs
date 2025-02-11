@@ -13,7 +13,7 @@ use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 /// 使用可变静态变量是不安全的，所以这里加了锁
 static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
     work_num: 8,
-    proxys: None,
+    proxy: None,
     combine_type: COMB_BIN,
 });
 lazy_static! {
@@ -27,10 +27,10 @@ pub const TASK_COM: usize = 2;  //合并视频
 pub const COMB_BIN: usize = 1; //二进制合并
 pub const COMB_FFMPEG: usize = 2;  //ffmpeg合并视频
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize,Debug)]
 pub struct GlobalConfig{
     work_num: usize,
-    proxys: Option<String>,
+    proxy: Option<String>,
     combine_type: usize,
 }
 
@@ -52,14 +52,16 @@ struct TaskState{
     state: Signal,
     file_name: String,
     abort_handles: Vec<AbortHandle>,
-    headers: Vec<(String,String)>,
+    meta: M3u8Entity,
 }
 impl TaskState {
-    fn new(hash: &str, total: usize, file_name: &str) -> Self{
+    fn from(entity: &M3u8Entity)->Self{
         let mut task = Self::default();
-        task.hash = hash.to_owned();
-        task.total = total;
-        task.file_name = file_name.to_owned();
+
+        task.hash = entity.temp_path.to_owned();
+        task.total = entity.clip_num();
+        task.file_name = entity.save_path.to_owned();
+        task.meta = entity.clone();
 
         task
     }
@@ -90,13 +92,16 @@ pub fn get_work_num() -> usize {
 pub fn set_proxys(proxy_str: &str) {
     {
         let mut a = GLOBAL_CONFIG.write().unwrap();
-        a.proxys = Some(proxy_str.to_owned());
+        a.proxy = Some(proxy_str.to_owned());
     }
     http_util::update_client();
     log::info!("=========> 更新proxy成功： proxy:{}",proxy_str);
 }
 pub fn get_proxys() -> String {
-    GLOBAL_CONFIG.read().unwrap().proxys.clone().unwrap_or("".to_string())
+    GLOBAL_CONFIG.read().unwrap().proxy.clone().unwrap_or("".to_string())
+}
+pub fn get_combine_type() -> usize {
+    GLOBAL_CONFIG.read().unwrap().combine_type
 }
 //----------------------------------------------------------------
 pub fn get_task_view() -> Vec<TaskView> {
@@ -124,14 +129,18 @@ pub fn add_prog(task_hash: &str) {
 pub fn add_task(entity: &M3u8Entity) -> Result<()>{
     let mut guard = TASK_MAP.write().unwrap();
     let task_hash = &entity.temp_path;
-    let clip_num = entity.clip_num();
     if let Some(t) = guard.get(task_hash){
         if let Signal::Normal = t.state {
             bail!("任务正在运行，无需添加")
         }
     }
-    guard.insert(task_hash.to_string(), TaskState::new(task_hash, clip_num, &entity.save_path));
+    guard.insert(task_hash.to_string(), TaskState::from(entity));
+
     Ok(())
+}
+pub fn get_meta(hash: &str)-> Option<M3u8Entity>{
+    let guard = TASK_MAP.read().unwrap();
+    guard.get(hash).map(|s|s.meta.clone())
 }
 pub fn abort_task(hash: &str)->Result<&str>{
     TASK_MAP.read().unwrap().get(hash)

@@ -31,7 +31,10 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
     validate_param(&param)?;
     match param.task_type {
         //下载任务
-        config::TASK_DOWN => run(param, async_task),
+        config::TASK_DOWN => {
+            let entity = M3u8Item::M3u8Entity::from(&param)?;
+            run(entity, async_task)
+        },
         //合并任务
         config::TASK_COM => combine::combine_clip(
             param.combine_dir.unwrap().as_str(),
@@ -39,6 +42,13 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
             param.combine_type,
             async_task),
         _=> bail!("任务类型不对"),
+    }
+}
+pub fn resume_task(task_hash: &str)-> Result<&str>{
+    if let Some(entity) = config::get_meta(task_hash){
+        run(entity, true).map(|_|"操作成功")
+    }else {
+        bail!("没有找到任务")
     }
 }
 /// 校验参数
@@ -58,7 +68,7 @@ fn validate_param(param: &DownParam)-> Result<()>{
     }
 }
 /// 运行下载任务
-fn run(param: DownParam, async_task: bool) -> Result<()>{
+fn run(entity: M3u8Item::M3u8Entity, async_task: bool) -> Result<()>{
     //设置代理 
     // param.proxy.as_ref()
     //     .filter(|&f|!f.is_empty())
@@ -66,16 +76,16 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
    
     //set workerNum
     // config::set_work_num(param.worker_num);
-    
-    let entity = M3u8Item::M3u8Entity::from(&param)?;
     config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
     let one = async move {
         let entity = &entity;
         let temp_path = entity.temp_path.as_str();
         let save_path = entity.save_path.as_str();
         let st = SystemTime::now(); //计时开始
+
         //手动创建了运行时，就可以不再使用main方法上的注解
         let all_success = download_async(entity).await;
+
         let spend_time = st.elapsed().unwrap().as_secs();
 
         log::info!("status is {:?}", config::get_status(temp_path));
@@ -83,11 +93,11 @@ fn run(param: DownParam, async_task: bool) -> Result<()>{
             log::info!("--->下载暂停");
             return ;
         }
-        log::info!("下载完毕！总耗时：{}s no_combine:{} all_success:{}", spend_time, param.no_combine, all_success);
+        log::info!("下载完毕！总耗时：{}s no_combine:{} all_success:{}", spend_time, entity.no_combine, all_success);
 
         //合并片段
-        if all_success && !param.no_combine {
-            let _ = combine::combine_clip(temp_path, save_path,param.combine_type, false)
+        if all_success && !entity.no_combine {
+            let _ = combine::combine_clip(temp_path, save_path,config::get_combine_type(), false)
                 .inspect_err(|e|{
                     log::error!("合并片段出错：{}", e);
                 });

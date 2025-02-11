@@ -24,10 +24,14 @@ pub struct DownParam {
     pub m3u8_file: Option<String>,    //m3u8文件路径
     pub temp_path: Option<String>,    //片段的临时存放目录
     pub key_str: Option<String>,      //m3u8片段的解密key
+    #[serde(default)]
     pub worker_num: usize,            //下载使用的并行任务数量 async方式
+    #[serde(default)]
     pub task_type: usize,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
+    #[serde(default)]
     pub combine_type: usize,            //合并类型 1-二进制合并 2-ffmpeg合并
-    pub no_combine: bool,            //任务类型，1-下载视频  2-合并现有目录下的视频片段
+    #[serde(default)]
+    pub no_combine: bool,            //只下载不合并
 }
 impl DownParam {
     pub fn from_cmd() -> Self{
@@ -75,7 +79,7 @@ impl DownParam {
     }
 }
 //M3u8文件参数
-#[derive(Debug,Default)]
+#[derive(Debug,Default,Clone)]
 pub struct M3u8Entity{
     // content: String,
     pub media_play_list: MediaPlaylist,
@@ -86,7 +90,8 @@ pub struct M3u8Entity{
     pub headers: Vec<(String,String)>,
     pub url_prefix: Option<String>,
     pub save_path: String,
-    pub temp_path: String
+    pub temp_path: String,
+    pub no_combine: bool, 
 }
 impl M3u8Entity {
     pub fn from(param: &DownParam) -> Result<M3u8Entity> {
@@ -103,6 +108,7 @@ impl M3u8Entity {
 
         // let mut clip_urls = vec![];
         let mut entity = Self::default();
+        entity.no_combine = param.no_combine;
         // temp_path
         entity.temp_path = param.temp_path.clone()
             .filter(|f|!f.is_empty())

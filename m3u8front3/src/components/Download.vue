@@ -159,9 +159,10 @@ const resumeTask = ()=>{
   console.log('继续下载：task_id: ' + sel_id.value)
   invoke('resume', {taskHash: sel_id.value})
     .then((response) => {
+      get_progress();
       msgBox(response)
     })
-    signal.value = 'resume'
+  signal.value = 'resume'
 }
 </script>
 

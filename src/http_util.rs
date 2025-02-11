@@ -99,6 +99,7 @@ pub fn update_client(){
     }
     let cli = builder.build().expect("build clent failed.");
     *guard = Some(cli);
+    log::info!("update client success.")
 }
 fn get_proxy()-> String {
     config::get_proxys()

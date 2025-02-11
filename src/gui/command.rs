@@ -18,6 +18,7 @@ pub fn start_tauri(){
       pause,
       get_progress,
       save_settings,
+      resume,
   ])
   .run(tauri::generate_context!())
   .expect("error while running tauri application");
@@ -45,6 +46,10 @@ pub fn pause(task_hash: &str) -> Result<&str,String>{
     config::set_signal(task_hash, Signal::Pause,None);
     return config::abort_task(task_hash).map_err(|e|e.to_string());
 }
+#[tauri::command]
+pub fn resume(task_hash: &str) -> Result<&str,String>{
+    return Manager::resume_task(task_hash).map_err(|e|e.to_string());
+}
 /// 修改成获取状态 TaskView
 #[tauri::command]
 pub fn get_progress() -> Vec<TaskView>{
@@ -53,7 +58,7 @@ pub fn get_progress() -> Vec<TaskView>{
 }
 #[tauri::command]
 pub fn save_settings(config: GlobalConfig) -> Result<&'static str,String>{
-    // 刷新 任务状态
+    log::info!("save_settings: {:?}",&config);
     config::set_global_settings(&config);
     return Ok("保存成功");
 }
