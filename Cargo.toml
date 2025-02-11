@@ -1,6 +1,6 @@
 [package]
 name = "M3u8-Grabber"
-version = "0.1.0"
+version = "0.3.0"
 description = "a m3u8 video downloader by Rust"
 authors = ["frank"]
 license = ""
