@@ -10,24 +10,15 @@ static ASYNC_CLIENT: RwLock<Option<reqwest::Client>> = RwLock::new(None);
 /// 方法
 #[test]
 pub fn main() {
-    let fc = ||{
-        let text = query_text("https://baidu.com");
-        if let Ok(res) = text {
-            println!("res: {}", &res[..100]);
-        } else {
-            println!("error: {:?}", text);
-        }
-    };
-    fc();
-    fc();
-    println!("end..");
+    let client = get_client();
+    println!("{:?}", client);
 }
 pub async fn query_bytes_async<K,V>(url: &str, header: Option<&[(K, V)]>) ->std::result::Result<Bytes, String> 
 where 
     K: AsRef<str> + Debug,
     V: AsRef<str> + Debug
     {
-    let client = get_client2();
+    let client = get_client();
     let mut req_builder = client.get(url);
     if let Some(header) = header {
         log::debug!("自定义请求头：{:?}", header);
@@ -66,28 +57,14 @@ pub fn query_text(url: &str) -> Result<String> {
         }
     }
 }
-fn get_client2()-> reqwest::Client{
+fn get_client()-> reqwest::Client{
     let mut guard = ASYNC_CLIENT.read().unwrap();
     if guard.is_none() {
-        init_client();
+        drop(guard);
+        update_client();
         guard = ASYNC_CLIENT.read().unwrap();
     }
     guard.as_ref().map(|f|f.clone()).unwrap()
-    
-}
-
-fn init_client() {
-    let mut builder = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60));
-
-    let p = get_proxy();
-    if p.len()>0 {
-        let proxy = reqwest::Proxy::all(p.as_str())
-                .expect("socks proxy should be there");
-        builder = builder.proxy(proxy);
-    }
-    let cli = builder.build().expect("build clent failed.");
-    *ASYNC_CLIENT.write().unwrap() = Some(cli);
 }
 pub fn update_client(){
     let mut guard = ASYNC_CLIENT.write().unwrap();
