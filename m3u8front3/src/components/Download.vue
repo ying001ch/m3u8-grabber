@@ -46,24 +46,15 @@ const map = {
   Exception: exception,
 }
 const tasks = ref([
-    {
-        task_id: 1,
-        status: 'Normal',
-        progress: 0.3,
-        err_msg: '',
-        file_name: '12wewwe',
-        finished: 15,
-        total: 45,
-    },
-    {
-        task_id:2,
-        status: 'Exception',
-        progress: 0.5,
-        err_msg: '',
-        file_name: 'dfghsdf',
-        finished: 15,
-        total: 30,
-    }
+    // {
+    //     task_id: 1,
+    //     status: 'Normal',
+    //     progress: 0.3,
+    //     err_msg: '',
+    //     file_name: '12wewwe',
+    //     finished: 15,
+    //     total: 45,
+    // },
 ]);
 
 const status_transfer = (status) => {
