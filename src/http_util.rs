@@ -1,11 +1,11 @@
 use anyhow::{Result, bail, anyhow};
 use bytes::Bytes;
 use reqwest::blocking::{Client, Response};
-use std::{env, fmt::Debug, io::{Read, Write}, sync::{Arc, Mutex}, time::Duration};
+use std::{env, fmt::Debug, io::{Read, Write}, sync::{Arc, Mutex, RwLock}, time::Duration};
 use crate::{async_runtime::{self, block_on}, config};
 
 /// 静态变量
-static ASYNC_CLIENT: Mutex<Option<reqwest::Client>> = Mutex::new(None);
+static ASYNC_CLIENT: RwLock<Option<reqwest::Client>> = RwLock::new(None);
 
 /// 方法
 #[test]
@@ -67,26 +67,30 @@ pub fn query_text(url: &str) -> Result<String> {
     }
 }
 fn get_client2()-> reqwest::Client{
-    let mut guard = ASYNC_CLIENT.lock().unwrap();
+    let mut guard = ASYNC_CLIENT.read().unwrap();
     if guard.is_none() {
-        let mut builder = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60));
-
-        // let mut builder = reqwest::blocking::Client::builder();
-        let p = get_proxy();
-        if p.len()>0 {
-            let proxy = reqwest::Proxy::all(p.as_str())
-                    .expect("socks proxy should be there");
-            builder = builder.proxy(proxy);
-        }
-        let cli = builder.build().expect("build clent failed.");
-        *guard = Some(cli);
+        init_client();
+        guard = ASYNC_CLIENT.read().unwrap();
     }
     guard.as_ref().map(|f|f.clone()).unwrap()
     
 }
+
+fn init_client() {
+    let mut builder = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60));
+
+    let p = get_proxy();
+    if p.len()>0 {
+        let proxy = reqwest::Proxy::all(p.as_str())
+                .expect("socks proxy should be there");
+        builder = builder.proxy(proxy);
+    }
+    let cli = builder.build().expect("build clent failed.");
+    *ASYNC_CLIENT.write().unwrap() = Some(cli);
+}
 pub fn update_client(){
-    let mut guard = ASYNC_CLIENT.lock().unwrap();
+    let mut guard = ASYNC_CLIENT.write().unwrap();
     let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(60));
 
