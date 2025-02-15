@@ -144,11 +144,16 @@ const deleteTask = ()=>{
     msgBox('请先选中任务')
     return;
   }
-  const indexToRemove = tasks.value.findIndex(item => item.task_id === sel_id.value);
 
-  if (indexToRemove !== -1) {
-    tasks.value.splice(indexToRemove, 1);
-  }
+  const indexToRemove = tasks.value.findIndex(item => item.task_id === sel_id.value);
+  invoke('delete_task', {taskHash: sel_id.value})
+    .then((response) => {
+      if (indexToRemove !== -1) {
+        tasks.value.splice(indexToRemove, 1);
+      }
+      msgBox(response)
+    })
+
 }
 const resumeTask = ()=>{
   if(sel_id.value < 0){

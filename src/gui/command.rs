@@ -19,6 +19,7 @@ pub fn start_tauri(){
       get_progress,
       save_settings,
       resume,
+      delete_task,
   ])
   .run(tauri::generate_context!())
   .expect("error while running tauri application");
@@ -49,6 +50,10 @@ pub fn pause(task_hash: &str) -> Result<&str,String>{
 #[tauri::command]
 pub fn resume(task_hash: &str) -> Result<&str,String>{
     return Manager::resume_task(task_hash).map_err(|e|e.to_string());
+}
+#[tauri::command]
+pub fn delete_task(task_hash: &str) -> Result<& str,String>{
+    return Manager::delete_task(task_hash).map_err(|e|e.to_string());
 }
 /// 修改成获取状态 TaskView
 #[tauri::command]

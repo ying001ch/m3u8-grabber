@@ -138,6 +138,9 @@ pub fn add_task(entity: &M3u8Entity) -> Result<()>{
 
     Ok(())
 }
+pub fn delete_task(task_hash: &str) {
+    TASK_MAP.write().unwrap().remove(task_hash);
+}
 pub fn get_meta(hash: &str)-> Option<M3u8Entity>{
     let guard = TASK_MAP.read().unwrap();
     guard.get(hash).map(|s|s.meta.clone())

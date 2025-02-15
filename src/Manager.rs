@@ -59,6 +59,18 @@ pub fn resume_task(task_hash: &str)-> Result<&str>{
         bail!("没有找到任务")
     }
 }
+pub fn delete_task(task_hash: &str) -> Result<& str>{
+    if let Some(signal) = config::get_status(task_hash){
+        if signal == Signal::Normal{
+            resume_task(task_hash)?;
+        }
+        config::delete_task(task_hash);
+        Ok("操作成功")
+    }else {
+        bail!("没有找到任务")
+    }
+    
+}
 /// 校验参数
 fn validate_param(param: &DownParam)-> Result<()>{
     //校验 合并参数、下载参数
