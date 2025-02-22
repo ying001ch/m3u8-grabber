@@ -2,6 +2,7 @@
 
 
 use anyhow::{Result};
+use tauri::Manager as tauri_manager;
 use M3u8_Grabber::config::GlobalConfig;
 
 use crate::M3u8Item::{DownParam, M3u8Entity};
@@ -12,6 +13,14 @@ use crate::Manager;
 pub fn start_tauri(){
     //启动图形界面
   tauri::Builder::default()
+  .setup(|app| {
+    let window = app.get_window("main").unwrap();
+    // 生产环境禁用右键菜单
+    if !cfg!(debug_assertions) {
+      window.eval(&format!("window.addEventListener('contextmenu', e => e.preventDefault());"))?;
+    }
+    Ok(())
+  })
   .invoke_handler(tauri::generate_handler![
       submit_task, 
       combine_cmd,
