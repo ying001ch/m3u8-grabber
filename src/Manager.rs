@@ -63,7 +63,7 @@ pub fn resume_task(task_hash: &str)-> Result<&str>{
 pub fn delete_task(task_hash: &str) -> Result<&str>{
     if let Some(signal) = config::get_status(task_hash){
         if signal == Signal::Normal{
-            resume_task(task_hash)?;
+            config::abort_task(task_hash)?;
         }
         // 删除临时文件
         let entity = config::delete_task(task_hash)?;

@@ -178,7 +178,11 @@ pub fn is_end(task_hash: &str) -> bool{
     predict_status(task_hash, Signal::End)
 }
 pub fn is_abort(task_hash: &str) -> bool {
-    predict_status(task_hash, Signal::Pause)
+    match get_status(task_hash) {
+        Some(s) if s != Signal::Pause => false,
+        _ => true,
+    }
+    // predict_status(task_hash, Signal::Pause)
 }
 pub fn is_normal(task_hash: &str) -> bool {
     predict_status(task_hash, Signal::Normal)
