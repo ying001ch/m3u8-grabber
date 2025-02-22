@@ -138,8 +138,13 @@ pub fn add_task(entity: &M3u8Entity) -> Result<()>{
 
     Ok(())
 }
-pub fn delete_task(task_hash: &str) {
-    TASK_MAP.write().unwrap().remove(task_hash);
+pub fn delete_task(task_hash: &str) -> Result<M3u8Entity>{
+    if let Some(v) = TASK_MAP.write().unwrap().remove(task_hash){
+        log::info!("task state is deleted. hash:{:?} fileName:{}",v.hash,v.file_name);
+        Ok(v.meta)
+    }else{
+        bail!("任务不存在")
+    }
 }
 pub fn get_meta(hash: &str)-> Option<M3u8Entity>{
     let guard = TASK_MAP.read().unwrap();

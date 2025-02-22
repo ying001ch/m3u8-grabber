@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use anyhow::bail;
+use anyhow::Context;
 use bytes::Bytes;
 use m3u8_rs::Key;
 use tokio::fs::File;
@@ -59,12 +60,15 @@ pub fn resume_task(task_hash: &str)-> Result<&str>{
         bail!("没有找到任务")
     }
 }
-pub fn delete_task(task_hash: &str) -> Result<& str>{
+pub fn delete_task(task_hash: &str) -> Result<&str>{
     if let Some(signal) = config::get_status(task_hash){
         if signal == Signal::Normal{
             resume_task(task_hash)?;
         }
-        config::delete_task(task_hash);
+        // 删除临时文件
+        let entity = config::delete_task(task_hash)?;
+        std::fs::remove_dir_all(entity.temp_path).context("删除临时文件失败")?;
+        log::info!("删除临时文件完成！");
         Ok("操作成功")
     }else {
         bail!("没有找到任务")

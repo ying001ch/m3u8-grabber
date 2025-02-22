@@ -85,7 +85,7 @@ fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(),
     if !save_path.parent().ok_or_else(||anyhow!("save_path parent now exists"))?.exists(){
         std::fs::create_dir_all(save_path.parent().unwrap()).context("创建输出目录失败")?;
     }
-    let mut output_file = std::fs::File::create(save_path).context("Failed to create the output file")?;
+    let output_file = std::fs::File::create(save_path).context("Failed to create the output file")?;
 
     let cd = clip_dir.to_string();
     let handler = move || {
@@ -102,6 +102,9 @@ fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(),
                 buf_writer.write_all(&buffer[..bytes_read])?;
             }
         }
+        let _ = buf_writer.flush().inspect_err(|e|{
+            log::error!("flush err: {}",e);
+        });
         log::info!("开始删除临时文件:");
         std::fs::remove_dir_all(cd).context("删除临时文件失败！")?;
         log::info!("删除临时文件完成！");
