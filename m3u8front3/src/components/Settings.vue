@@ -54,6 +54,18 @@ const saveSettings = () => {
             msgBox(response)
         })
 }
+const loadSettings = () => {
+    console.log("loadSettings start.")
+
+    invoke('load_settings')
+        .then((response) => {
+            console.log("loadSettings: "+ JSON.stringify(response))
+            settings.proxy = response.proxy
+            settings.work_num = response.work_num
+            settings.combine_type = response.combine_type
+        })
+}
+loadSettings()
 
 
 //-----

@@ -1,9 +1,8 @@
-use core::panic;
-use std::{sync::RwLock,collections::HashMap, mem::discriminant};
+use std::{sync::RwLock,collections::HashMap};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use lazy_static::lazy_static;
-use tokio::{task::AbortHandle};
+use tokio::task::AbortHandle;
 use serde::{Deserialize, Serialize};
 
 use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
@@ -27,7 +26,7 @@ pub const TASK_COM: usize = 2;  //合并视频
 pub const COMB_BIN: usize = 1; //二进制合并
 pub const COMB_FFMPEG: usize = 2;  //ffmpeg合并视频
 
-#[derive(Clone, Deserialize,Debug)]
+#[derive(Clone, Serialize,Deserialize,Debug)]
 pub struct GlobalConfig{
     pub work_num: usize,
     pub proxy: Option<String>,
@@ -71,8 +70,30 @@ impl TaskState {
 }
 //----------------------------------------------------------------
 pub fn set_global_settings(config: &GlobalConfig){
+    persistence_settings(config);
     *GLOBAL_CONFIG.write().unwrap() = config.clone();
     http_util::update_client();
+}
+pub fn load_global_settings() -> GlobalConfig{
+    let settings = match load_from_persistence(){
+        Ok(c)=>{
+            set_global_settings(&c);
+            c
+        },
+        Err(e)=>{
+            log::error!("====> load settings error: {}",e);
+            GLOBAL_CONFIG.read().unwrap().clone()
+        }
+    };
+    settings
+}
+fn persistence_settings(config: &GlobalConfig){
+    let json = serde_json::to_string_pretty(config).unwrap();
+    std::fs::write("settings.json",json).unwrap(); 
+}
+fn load_from_persistence() -> anyhow::Result<GlobalConfig>{
+    let c = serde_json::from_str(std::fs::read_to_string("settings.json")?.as_str())?;
+    Ok(c)
 }
 pub fn set_work_num(work_num: usize) {
     let a = GLOBAL_CONFIG.write();

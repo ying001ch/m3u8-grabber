@@ -29,6 +29,7 @@ pub fn start_tauri(){
       save_settings,
       resume,
       delete_task,
+      load_settings,
   ])
   .run(tauri::generate_context!())
   .expect("error while running tauri application");
@@ -75,4 +76,8 @@ pub fn save_settings(config: GlobalConfig) -> Result<&'static str,String>{
     log::info!("save_settings: {:?}",&config);
     config::set_global_settings(&config);
     return Ok("保存成功");
+}
+#[tauri::command]
+pub fn load_settings() -> GlobalConfig{
+    config::load_global_settings()
 }
