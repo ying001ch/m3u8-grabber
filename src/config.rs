@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
 
-
+pub const DEFAULT_WORK_NUM: usize = 16;
 /// 全局配置存储
 /// 使用可变静态变量是不安全的，所以这里加了锁
 static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
-    work_num: 16,
+    work_num: DEFAULT_WORK_NUM,
     proxy: None,
     combine_type: COMB_BIN,
 });

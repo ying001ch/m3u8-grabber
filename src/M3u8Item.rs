@@ -1,11 +1,7 @@
-use core::panic;
 use std::collections::hash_map::DefaultHasher;
 use std::path::Path;
-use std::{default, env};
-use std::error::Error;
-use std::fmt::format;
+use std::env;
 use std::hash::{Hash, Hasher};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::http_util;
 use crate::config;
@@ -56,7 +52,8 @@ impl DownParam {
                 param.key_str = Some(s.replace("--key=",""));
             }else if s.contains("--worker="){ //下载线程数
                 param.worker_num = s.replace("--worker=", "")
-                    .parse().unwrap_or(80);
+                    .parse()
+                    .unwrap_or(config::DEFAULT_WORK_NUM);
             }else if s.contains("--noCombine"){ //只下载不合并
                 param.no_combine = true;
             }else if s.contains("--file="){
@@ -72,7 +69,7 @@ impl DownParam {
             }
         });
         if param.worker_num <= 0 {
-            param.worker_num = 8;
+            param.worker_num = config::DEFAULT_WORK_NUM;
         }
         log::info!("===>param : {:?}", param);
         param
@@ -130,13 +127,14 @@ impl M3u8Entity {
                 entity.media_play_list = play_list;
             },
             Err(e) => {
-                bail!("M3U8 解析错误: {}", &e.to_string()[..100])
+                let a= e.map(|inner|String::from_utf8_lossy(inner.input));
+                bail!("M3U8文件 解析错误: {}", &a.to_string()[..100])
             },
         }
 
         let clips = &entity.media_play_list.segments;
         if clips.is_empty(){
-            bail!(format!("M3U8 元信息解析错误，未解析到视频片段信息。content: \n{}", &content[0..200]));
+            bail!(format!("M3U8 解析异常，未解析到视频片段信息。content: \n{}", &content[0..200]));
         }
         if clips[0].key.as_ref().filter(|&k|k.uri.is_some()).is_none(){
             log::info!("未发现密钥信息, 将不进行解密！");

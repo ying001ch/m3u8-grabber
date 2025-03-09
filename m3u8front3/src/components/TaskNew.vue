@@ -1,7 +1,7 @@
 <template>
     <div class="task_new">
         <el-dialog v-model="dialogShow" title="任务录入" width="600px" @close="resetForm">
-            <el-form :model="form" label-width="auto" v-if="task_type==1">
+            <el-form :model="form" label-width="auto" v-if="task_type==1" ref="formRef" @keyup.enter="submitTask">
                 <el-form-item label="地址" >
                     <el-input v-model="form.address" autocomplete="off"></el-input>
                 </el-form-item>
@@ -44,6 +44,7 @@ import { ElMessageBox } from 'element-plus'
 
 const dialogShow = ref(false);
 const task_type = ref(1);
+const formRef = ref(null);
 
 const form = reactive(
     {
@@ -72,6 +73,13 @@ const emit = defineEmits("submit")
 const submitTask = () => {
     console.log('submit');
     console.log('submit： '+ JSON.stringify(form));
+
+    // 让表单内的所有输入框脱离焦点
+    const inputs = formRef.value.$el.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.blur();
+        console.log('input blur :'+input.value)
+    });
 
     if(!form.save_path){
         msgBox('地址和保存路径必填')
