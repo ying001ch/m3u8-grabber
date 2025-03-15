@@ -80,6 +80,7 @@ impl DownParam {
 pub struct M3u8Entity{
     // content: String,
     pub media_play_list: MediaPlaylist,
+    pub content: String,
     pub key: [u8;16],
     pub iv: [u8;16],
     pub key_num: usize,
@@ -125,6 +126,7 @@ impl M3u8Entity {
         match m3u8_result {
             Ok(play_list) => {
                 entity.media_play_list = play_list;
+                entity.content = content.clone();
             },
             Err(e) => {
                 let a= e.map(|inner|String::from_utf8_lossy(inner.input));

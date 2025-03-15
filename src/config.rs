@@ -126,6 +126,8 @@ pub fn get_combine_type() -> usize {
 }
 //----------------------------------------------------------------
 pub fn get_task_view() -> Vec<TaskView> {
+    //TODO 从数据库读取历史任务
+    
     let guard = TASK_MAP.read().unwrap();
     let views:Vec<TaskView> = guard.values()
         .map(|f|{
@@ -156,6 +158,8 @@ pub fn add_task(entity: &M3u8Entity) -> Result<()>{
         }
     }
     guard.insert(task_hash.to_string(), TaskState::from(entity));
+
+    //TODO 持久化任务
 
     Ok(())
 }

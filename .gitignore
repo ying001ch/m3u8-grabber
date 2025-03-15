@@ -8,3 +8,4 @@ node_modules/
 /log
 *.m3u8
 settings.json
+local.db
