@@ -1,10 +1,5 @@
-use std::{ops::Deref, sync::LazyLock, thread};
+use crate::{config::{Signal, TaskState}, db::{get_conn, util::encode_headers}, M3u8Item::M3u8Entity};
 
-use sqlx::{prelude::Type, ColumnIndex, Decode, FromRow, Pool, Row, Sqlite};
-
-use crate::{async_runtime, config::{Signal, TaskState}, db::{get_conn, util::encodeHeaders}, M3u8Item::M3u8Entity};
-
-use super::util::decodeHeaders;
 
 
 const INSERT_TASK: &str = r#"
@@ -34,7 +29,7 @@ pub async fn add_task(entity: &M3u8Entity) -> anyhow::Result<()> {
         .bind(&entity.key[..]) // key
         .bind(&entity.iv[..]) // iv
         .bind(entity.key_num as u32) // key_num
-        .bind(encodeHeaders(&entity.headers)) // headers
+        .bind(encode_headers(&entity.headers)) // headers
         .bind(entity.url_prefix.as_ref()) // url_prefix
         .bind(entity.save_path.as_str()) // save_path
         .bind(entity.temp_path.as_str()) // temp_path

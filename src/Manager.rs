@@ -7,7 +7,6 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
 use tokio::task::AbortHandle;
-use tokio::task::JoinHandle;
 use anyhow::Result;
 
 use crate::aes_util;
@@ -20,12 +19,10 @@ use crate::M3u8Item;
 use crate::M3u8Item::DownParam;
 use crate::config;
 use std::io::Error;
-use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use std::thread;
 use std::time::SystemTime;
 
 /// 决定任务是 异步还是同步，合并文件还是下载文件

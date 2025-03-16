@@ -1,9 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{vec};
 use M3u8_Grabber::*;
-use M3u8Item::{DownParam};
+use M3u8Item::DownParam;
 
 mod gui;
 

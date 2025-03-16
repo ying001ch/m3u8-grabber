@@ -6,7 +6,7 @@ use std::{sync::LazyLock, thread};
 use m3u8_rs::MediaPlaylist;
 use sqlx::{prelude::*, sqlite::SqlitePoolOptions, ColumnIndex, Pool, Sqlite};
 use sqlx_sqlite::SqliteRow;
-use util::decodeHeaders;
+use util::decode_headers;
 
 use crate::{async_runtime, config::{Signal, TaskState}, M3u8Item::M3u8Entity};
 
@@ -70,7 +70,7 @@ where
         en.iv.copy_from_slice( row.try_get::<&[u8],_>("iv")?);
         en.key_num = row.try_get::<i32,_>("key_num")? as usize;
 
-        en.headers = decodeHeaders(row.try_get::<String,_>("headers")?);
+        en.headers = decode_headers(row.try_get::<String,_>("headers")?);
         en.url_prefix = row.try_get::<Option<String>,_>("url_prefix")?;
         en.save_path = row.try_get::<String,_>("save_path")?;
         en.temp_path = row.try_get::<String,_>("temp_path")?;

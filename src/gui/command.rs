@@ -1,11 +1,11 @@
 //! tauri命令集合
 
 
-use anyhow::{Result};
+use anyhow::Result;
 use tauri::Manager as tauri_manager;
 use M3u8_Grabber::config::GlobalConfig;
 
-use crate::M3u8Item::{DownParam, M3u8Entity};
+use crate::M3u8Item::DownParam;
 use crate::config::{self, Signal};
 use crate::view::TaskView;
 use crate::Manager;
