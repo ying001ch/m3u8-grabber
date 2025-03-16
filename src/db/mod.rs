@@ -55,11 +55,11 @@ impl<'r> FromRow<'r, SqliteRow> for TaskState
 where
     // R: SqliteRow,
     usize: ColumnIndex<SqliteRow>,
-    String: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
-    i32: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
-    bool: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
-    Option<String>: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
-    &'r [u8]: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
+    String: Decode<'r, Sqlite> + Type<Sqlite>,
+    i32: Decode<'r, Sqlite> + Type<Sqlite>,
+    bool: Decode<'r, Sqlite> + Type<Sqlite>,
+    Option<String>: Decode<'r, Sqlite> + Type<Sqlite>,
+    &'r [u8]: Decode<'r, Sqlite> + Type<Sqlite>,
 {
     fn from_row(row:  &'r SqliteRow) -> Result<Self, sqlx::Error> {
         let mut en: M3u8Entity = M3u8Entity::default();
