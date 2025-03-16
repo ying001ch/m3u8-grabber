@@ -1,4 +1,4 @@
-use std::future::Future;
+use std::{future::Future, thread};
 
 use once_cell::sync::OnceCell;
 use tokio::{runtime::{Handle, Runtime}, task::JoinHandle};
@@ -17,6 +17,11 @@ impl GlobalRuntime {
 }
 
 pub fn block_on<F: Future>(task: F) -> F::Output {
+    if let Ok(h) = Handle::try_current(){
+        log::warn!("当前线程是 tokio 运行时线程，不能直接执行任务");
+        return h.block_on(task);
+    }
+
     let runtime = RUNTIME.get_or_init(default_runtime);
     runtime.block_on(task)
 }
@@ -30,11 +35,13 @@ where
 }
 
 fn default_runtime() -> GlobalRuntime {
-    let runtime = Runtime::new().unwrap();
-    let handle = runtime.handle().clone();
-    log::info!("tokio 异步运行时已创建");
-    GlobalRuntime {
-        runtime: runtime,
-        handle,
-    }
+    thread::spawn(|| {
+        let runtime = Runtime::new().unwrap();
+        let handle = runtime.handle().clone();
+        log::info!("tokio 异步运行时已创建");
+        GlobalRuntime {
+            runtime: runtime,
+            handle,
+        }
+    }).join().unwrap()
 }  

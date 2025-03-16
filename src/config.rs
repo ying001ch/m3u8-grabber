@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use tokio::task::AbortHandle;
 use serde::{Deserialize, Serialize};
 
-use crate::{view::TaskView, M3u8Item::M3u8Entity, http_util};
+use crate::{async_runtime, db, http_util, view::TaskView, M3u8Item::M3u8Entity};
 
 pub const DEFAULT_WORK_NUM: usize = 16;
 /// 全局配置存储
@@ -33,17 +33,29 @@ pub struct GlobalConfig{
     pub combine_type: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Default,Serialize)]
+#[derive(Debug, Clone,Copy, PartialEq, Default,Serialize)]
 pub enum Signal {
     #[default] //设置枚举默认值
-    Normal,
+    Normal = 0,
     Pause,
     PartFinish,
     End,
-    Exception, //下载异常
+    Exception = 4, //下载异常
+}
+impl From<usize> for Signal{
+    fn from(value: usize) -> Self {
+        match value {
+            0 => Self::Normal,
+            1 => Self::Pause,
+            2 => Self::PartFinish,
+            3 => Self::End,
+            4 => Self::Exception,
+            _ => Self::Normal,
+        }
+    } 
 }
 #[derive(Debug, Default)]
-struct TaskState{
+pub struct TaskState{
     err_msg: String,
     hash: String,
     total: usize,
@@ -54,7 +66,7 @@ struct TaskState{
     meta: M3u8Entity,
 }
 impl TaskState {
-    fn from(entity: &M3u8Entity)->Self{
+    pub fn from(entity: &M3u8Entity)->Self{
         let mut task = Self::default();
 
         task.hash = entity.temp_path.to_owned();
@@ -63,6 +75,11 @@ impl TaskState {
         task.meta = entity.clone();
 
         task
+    }
+    pub fn set_ext(&mut self, finished: usize, state: Signal, err_msg: &str){
+        self.finished = finished;
+        self.state = state;
+        self.err_msg = err_msg.to_string();
     }
     fn progress(&self) -> f64{
         self.finished as f64 / self.total as f64
@@ -125,8 +142,11 @@ pub fn get_combine_type() -> usize {
     GLOBAL_CONFIG.read().unwrap().combine_type
 }
 //----------------------------------------------------------------
-pub fn get_task_view() -> Vec<TaskView> {
+pub fn get_task_view(load_db: bool) -> Vec<TaskView> {
     //TODO 从数据库读取历史任务
+    if load_db {
+        async_runtime::block_on(load_tasks()).unwrap();
+    }
     
     let guard = TASK_MAP.read().unwrap();
     let views:Vec<TaskView> = guard.values()
@@ -142,6 +162,32 @@ pub fn get_task_view() -> Vec<TaskView> {
         })
         .collect();
     views
+}
+/// 从数据库加载历史任务
+pub async fn load_tasks() -> Result<()>{
+    log::info!("---> 加载历史任务");
+    let tasks = db::service::list_all().await?;
+    let mut guard = TASK_MAP.write().unwrap();
+    for mut t in tasks{
+        let cnt = t.meta.content.as_str();
+        let m3u8_result = m3u8_rs::parse_media_playlist_res(cnt.as_bytes());
+        match m3u8_result {
+            Ok(play_list) => {
+                t.meta.media_play_list = play_list;
+                t.total = t.meta.clip_num();
+            },
+            Err(e) => {
+                let a= e.map(|inner|String::from_utf8_lossy(inner.input));
+                log::error!("M3U8文件 解析错误: {}", &a.to_string()[..100]);
+                t.state = Signal::Exception;
+            },
+        }
+        guard.insert(t.hash.to_string(), t);
+    }
+
+    log::info!("---> 加载历史任务数量：{}",guard.len());
+
+    Ok(())
 }
 pub fn add_prog(task_hash: &str) {
     TASK_MAP.write().unwrap()
@@ -159,12 +205,14 @@ pub fn add_task(entity: &M3u8Entity) -> Result<()>{
     }
     guard.insert(task_hash.to_string(), TaskState::from(entity));
 
-    //TODO 持久化任务
+    // 持久化任务
+    async_runtime::block_on( db::service::add_task(entity))?;
 
     Ok(())
 }
 pub fn delete_task(task_hash: &str) -> Result<M3u8Entity>{
     if let Some(v) = TASK_MAP.write().unwrap().remove(task_hash){
+        async_runtime::block_on(db::service::del_task(task_hash))?;
         log::info!("task state is deleted. hash:{:?} fileName:{}",v.hash,v.file_name);
         Ok(v.meta)
     }else{
@@ -176,6 +224,7 @@ pub fn get_meta(hash: &str)-> Option<M3u8Entity>{
     guard.get(hash).map(|s|s.meta.clone())
 }
 pub fn abort_task(hash: &str)->Result<&str>{
+    log::info!("停止任务：{}",hash);
     TASK_MAP.read().unwrap().get(hash)
         .map(|t|{
             t.abort_handles.iter()
@@ -190,14 +239,25 @@ pub fn add_abort_handles(task_hash:&str, handles: Vec<AbortHandle>){
         .map(|t|t.abort_handles = handles);
 }
 pub fn set_signal(task_hash: &str, ss: Signal, msg: Option<String>) {
-    let mut guard = TASK_MAP.write().unwrap();
-    guard.get_mut(task_hash)
-        .map(|f|{
+    async_runtime::block_on(set_signal_async(task_hash, ss, msg));
+}
+pub async fn set_signal_async(task_hash: &str, ss: Signal, msg: Option<String>) {
+    let mut ok = false;
+    {
+        let mut guard = TASK_MAP.write().unwrap();
+        log::info!("任务状态改变：task_hash:{}, state:{:?} task size: {}",task_hash,ss, guard.len());
+        if let Some(f) = guard.get_mut(task_hash){
             f.state = ss;
-            if let Some(msg) = msg{
-                f.err_msg = msg;
+            if let Some(ref msg) = msg{
+                f.err_msg = msg.to_owned();
             }
-        });
+            ok = true;
+        }
+    }
+    if ok {
+        db::service::update_state(task_hash, ss, msg.clone()).await.unwrap();
+        log::info!("任务状态改变成功：task_hash:{}, state:{:?}",task_hash, ss);
+    }
 }
 pub fn is_end(task_hash: &str) -> bool{
     predict_status(task_hash, Signal::End)

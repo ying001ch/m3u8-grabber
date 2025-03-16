@@ -248,9 +248,9 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         if !all_success {
             msg = Some(format!("以下片段出错没有下载完成: {:?}", err_clips.lock().unwrap()));
             log::error!("{}",msg.as_ref().unwrap());
-            config::set_signal(&entity.temp_path, Signal::PartFinish, msg);
+            config::set_signal_async(&entity.temp_path, Signal::PartFinish, msg).await;
         }else{
-            config::set_signal(&entity.temp_path, Signal::End, msg);
+            config::set_signal_async(&entity.temp_path, Signal::End, msg).await;
         }
         return all_success;
     }

@@ -82,9 +82,12 @@ const refresh_list = (form) => {
     }
     console.log("refresh_list:" + form)
 };
+// 获取进度
+const get_progress = (load_db)=>{  
+  load_db = load_db || false
+  console.log('load_db='+ load_db)
 
-const get_progress = ()=>{  
-    invoke('get_progress', {})
+    invoke('get_progress', {loadDb: load_db})
     .then((resp) => {
         console.log('resp='+ JSON.stringify(resp))
         //触发获取进度通知
@@ -169,6 +172,11 @@ const resumeTask = ()=>{
     })
   signal.value = 'resume'
 }
+
+function init(){
+  get_progress(true);
+}
+init()
 </script>
 
 

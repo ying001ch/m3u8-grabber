@@ -1,11 +1,14 @@
-mod service;
+pub mod service;
 pub mod util;
+
+use std::{sync::LazyLock, thread};
 
 use m3u8_rs::MediaPlaylist;
 use sqlx::{prelude::*, sqlite::SqlitePoolOptions, ColumnIndex, Pool, Sqlite};
+use sqlx_sqlite::SqliteRow;
 use util::decodeHeaders;
 
-use crate::{config::Signal, M3u8Item::M3u8Entity};
+use crate::{async_runtime, config::{Signal, TaskState}, M3u8Item::M3u8Entity};
 
 pub struct TaskEntity {
     id: u32,
@@ -48,51 +51,71 @@ CREATE TABLE if not exists TaskEntity (
 );
 "#;
 
-impl<'r, R> FromRow<'r, R> for M3u8Entity
+impl<'r> FromRow<'r, SqliteRow> for TaskState
 where
-    R: Row,
-    usize: ColumnIndex<R>,
-    String: Decode<'r, R::Database> + Type<R::Database>,
-    i32: Decode<'r, R::Database> + Type<R::Database>,
-    bool: Decode<'r, R::Database> + Type<R::Database>,
-    Option<String>: Decode<'r, R::Database> + Type<R::Database>,
-    &'r [u8]: Decode<'r, R::Database> + Type<R::Database>,
+    // R: SqliteRow,
+    usize: ColumnIndex<SqliteRow>,
+    String: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
+    i32: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
+    bool: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
+    Option<String>: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
+    &'r [u8]: Decode<'r, <SqliteRow as Row>::Database> + Type<<SqliteRow as Row>::Database>,
 {
-    fn from_row(row:  &'r R) -> Result<Self, sqlx::Error> {
-        let mut en = M3u8Entity::default();
+    fn from_row(row:  &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        let mut en: M3u8Entity = M3u8Entity::default();
         
         // en.total = row.try_get::<usize,_>(3)?;
-        en.content = row.try_get::<String,_>(7)?;
-        en.key.copy_from_slice( row.try_get::<&[u8],_>(8)?);
-        en.iv.copy_from_slice( row.try_get::<&[u8],_>(9)?);
-        en.key_num = row.try_get::<i32,_>(10)? as usize;
+        en.content = row.try_get::<String,_>("media_play_list")?;
+        en.key.copy_from_slice( row.try_get::<&[u8],_>("key")?);
+        en.iv.copy_from_slice( row.try_get::<&[u8],_>("iv")?);
+        en.key_num = row.try_get::<i32,_>("key_num")? as usize;
 
-        en.headers = decodeHeaders(row.try_get::<String,_>(11)?);
-        en.url_prefix = row.try_get::<Option<String>,_>(12)?;
-        en.save_path = row.try_get::<String,_>(13)?;
-        en.temp_path = row.try_get::<String,_>(14)?;
-        en.no_combine = row.try_get::<bool,_>(15)?;
+        en.headers = decodeHeaders(row.try_get::<String,_>("headers")?);
+        en.url_prefix = row.try_get::<Option<String>,_>("url_prefix")?;
+        en.save_path = row.try_get::<String,_>("save_path")?;
+        en.temp_path = row.try_get::<String,_>("temp_path")?;
+        en.no_combine = row.try_get::<bool,_>("no_combine")?;
 
-        Ok(en)
+        let mut task = TaskState::from(&en);
+        task.set_ext(
+            row.try_get::<u32,_>("finished")? as usize,
+            (row.try_get::<u32,_>("state")? as usize).into(),
+            row.try_get::<String,_>("err_msg")?.as_str(),
+        );
+        
+        Ok(task)
     }
 }
-
-
-pub async fn get_conn() -> Result<Pool<Sqlite>, sqlx::Error>{
-    let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect("sqlite://local.db?mode=rwc")
-        .await;
-    pool
+static POOL: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
+    thread::spawn(||{
+        async_runtime::block_on(async {
+            let db = SqlitePoolOptions::new()
+                .max_connections(5)
+                .connect("sqlite://local.db?mode=rwc")
+                .await.unwrap();
+            init_table(&db).await.unwrap();
+            db
+        })
+    }).join().unwrap()
+});
+pub fn get_conn() -> &'static Pool<Sqlite>{
+    &POOL
+}
+pub async fn init_table(db: &Pool<Sqlite>) -> Result<(), sqlx::Error>{
+    // 执行 SQL 语句来创建表
+    sqlx::query(create_table_sql)
+       .execute(db)
+       .await?;
+    Ok(())
 }
 
 #[tokio::test] // Requires the `attributes` feature of `async-std`
 async fn test_create_table() -> Result<(), sqlx::Error> {
-    let db = get_conn().await?;
+    let db = get_conn();
 
     // 执行 SQL 语句来创建表
     let res = sqlx::query(create_table_sql)
-       .execute(&db)
+       .execute(db)
        .await?;
     println!("rows_affected: {}", res.rows_affected());
     Ok(())

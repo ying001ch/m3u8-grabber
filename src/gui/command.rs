@@ -55,6 +55,7 @@ pub fn combine_cmd(param_str: &str) -> Result<&str, String>{
 #[tauri::command]
 pub fn pause(task_hash: &str) -> Result<&str,String>{
     config::set_signal(task_hash, Signal::Pause,None);
+    log::info!("set signal success");
     return config::abort_task(task_hash).map_err(|e|e.to_string());
 }
 #[tauri::command]
@@ -67,9 +68,9 @@ pub fn delete_task(task_hash: &str) -> Result<& str,String>{
 }
 /// 修改成获取状态 TaskView
 #[tauri::command]
-pub fn get_progress() -> Vec<TaskView>{
+pub fn get_progress(load_db: bool) -> Vec<TaskView>{
     // 刷新 任务状态
-    return config::get_task_view();
+    return config::get_task_view(load_db);
 }
 #[tauri::command]
 pub fn save_settings(config: GlobalConfig) -> Result<&'static str,String>{
