@@ -45,10 +45,13 @@ pub async fn add_task(entity: &M3u8Entity) -> anyhow::Result<()> {
 
     Ok(())
 }
-pub async fn update_state(hash: &str, sign: Signal, err_msg: Option<String>) -> anyhow::Result<u64> {
-    let res = sqlx::query("update TaskEntity set state = ?, err_msg=? where hash = ?")
+pub async fn update_state(hash: &str, sign: Signal, finished: u32, err_msg: Option<String>) -> anyhow::Result<u64> {
+    let res = sqlx::query("update TaskEntity 
+            set state = ?, err_msg=? , finished =?
+             where hash = ?")
        .bind(sign as i32)
        .bind(err_msg.unwrap_or_default())
+       .bind(finished)
        .bind(hash)
        .execute(get_conn())
        .await?;
@@ -107,7 +110,7 @@ pub async fn tests_add() -> anyhow::Result<()> {
 }
 #[tokio::test]
 pub async fn tests_update() -> anyhow::Result<()> {
-    update_state("456", Signal::End, None).await?;
+    update_state("456", Signal::End, 10, None).await?;
     
     let list = list_task(Signal::End).await?;
     list.iter().for_each(|f|{

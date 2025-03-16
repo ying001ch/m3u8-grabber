@@ -52,6 +52,8 @@ const saveSettings = () => {
     invoke('save_settings', {"config":{...settings}})
         .then((response) => {
             msgBox(response)
+        }).catch((error) => {
+          msgBox(error)
         })
 }
 const loadSettings = () => {
@@ -63,6 +65,8 @@ const loadSettings = () => {
             settings.proxy = response.proxy
             settings.work_num = response.work_num
             settings.combine_type = response.combine_type
+        }).catch((error) => {
+          msgBox(error)
         })
 }
 loadSettings()

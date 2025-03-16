@@ -139,7 +139,9 @@ const pause = ()=>{
   invoke('pause', {taskHash: sel_id.value})
     .then((response) => {
       msgBox(response)
-    })
+    }).catch((error) => {
+          msgBox(error)
+        })
     signal.value = 'pause'
 };
 const deleteTask = ()=>{
@@ -155,7 +157,9 @@ const deleteTask = ()=>{
         tasks.value.splice(indexToRemove, 1);
       }
       msgBox(response)
-    })
+    }).catch((error) => {
+          msgBox(error)
+        })
 
 }
 const resumeTask = ()=>{
@@ -169,7 +173,9 @@ const resumeTask = ()=>{
     .then((response) => {
       get_progress();
       msgBox(response)
-    })
+    }).catch((error) => {
+          msgBox(error)
+        })
   signal.value = 'resume'
 }
 

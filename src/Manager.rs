@@ -21,6 +21,7 @@ use crate::M3u8Item::DownParam;
 use crate::config;
 use std::io::Error;
 use std::io::Write;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -54,10 +55,23 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
     }
 }
 pub fn resume_task(task_hash: &str)-> Result<&str>{
-    if let Some(entity) = config::get_meta(task_hash){
-        run(entity, true).map(|_|"操作成功")
-    }else {
-        bail!("没有找到任务")
+    match config::get_status(task_hash) {
+        Some(signal) => {
+            if signal == Signal::Normal{
+                bail!("任务已经在运行中");
+            }
+            if signal == Signal::End{
+                bail!("任务已完成");
+            }
+            if let Some(entity) = config::get_meta(task_hash){
+                run(entity, true).map(|_|"操作成功")
+            }else {
+                bail!("没有找到任务");
+            }
+        }, 
+        None => {
+            bail!("没有找到任务")
+        }
     }
 }
 pub fn delete_task(task_hash: &str) -> Result<&str>{
@@ -67,7 +81,9 @@ pub fn delete_task(task_hash: &str) -> Result<&str>{
         }
         // 删除临时文件
         let entity = config::delete_task(task_hash)?;
-        std::fs::remove_dir_all(entity.temp_path).context("删除临时文件失败")?;
+        if Path::new(&entity.temp_path).exists(){
+            std::fs::remove_dir_all(entity.temp_path).context("删除临时文件失败")?;
+        }
         log::info!("删除临时文件完成！");
         Ok("操作成功")
     }else {

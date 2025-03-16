@@ -114,6 +114,9 @@ const combine = (event) => {
       console.log('sub pam: '+pam)
       invoke('combine_cmd', { paramStr: pam })
         .then((response) => msgBox(response))
+        .catch((error) => {
+          msgBox(error)
+        })
     }
 defineExpose({
     open,

@@ -243,6 +243,7 @@ pub fn set_signal(task_hash: &str, ss: Signal, msg: Option<String>) {
 }
 pub async fn set_signal_async(task_hash: &str, ss: Signal, msg: Option<String>) {
     let mut ok = false;
+    let mut finished = 0;
     {
         let mut guard = TASK_MAP.write().unwrap();
         log::info!("任务状态改变：task_hash:{}, state:{:?} task size: {}",task_hash,ss, guard.len());
@@ -252,10 +253,11 @@ pub async fn set_signal_async(task_hash: &str, ss: Signal, msg: Option<String>) 
                 f.err_msg = msg.to_owned();
             }
             ok = true;
+            finished = f.finished;
         }
     }
     if ok {
-        db::service::update_state(task_hash, ss, msg.clone()).await.unwrap();
+        db::service::update_state(task_hash, ss, finished as u32,msg.clone()).await.unwrap();
         log::info!("任务状态改变成功：task_hash:{}, state:{:?}",task_hash, ss);
     }
 }
