@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{env, path::Path, str::FromStr};
 
 use anyhow::anyhow;
 use log::LevelFilter;
@@ -26,9 +26,14 @@ pub fn run() {
         let config = Config::builder().appender(
             console_appender(),
         );
+        let level = env::var("rust_log")
+            .ok()
+            .and_then(|e|LevelFilter::from_str(e.as_str()).ok())
+            .unwrap_or(DEFAULT_LEVEL);
+        println!("日志级别: {level}");
         let root = Root::builder()
             .appenders(["console"])
-            .build(DEFAULT_LEVEL);
+            .build(level);
         log4rs::init_config(config.build(root).unwrap()).map(|_|())
             .map_err(|e|anyhow!("初始化日志组件异常 {e}"))
     } else if Path::new(CONFIG_PATH).exists(){
