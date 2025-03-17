@@ -22,7 +22,7 @@
                 </el-form-item>
             </el-form>
 
-            <el-form :model="form" label-width="auto" v-if="task_type==2">
+            <el-form :model="form" label-width="auto" v-if="task_type==2" ref="formRef" @keyup.enter="submitTask">
               <el-form-item label="片段目录" >
                   <el-input placeholder="输入要合并的视频片段目录" v-model="form.combine_dir" clearable></el-input>
               </el-form-item>
