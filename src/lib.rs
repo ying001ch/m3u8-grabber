@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 pub mod Manager;
 mod http_util;
 pub mod M3u8Item;
@@ -10,7 +12,11 @@ mod async_runtime;
 mod db;
 pub mod log_init;
 
-pub fn use_cmd() -> bool {
+static USE_CMD_STATE: LazyLock<bool> = LazyLock::new(||{
     let args:Vec<String> = std::env::args().collect();
     args.len() > 1 && (args[1].starts_with("http") || args[1].contains("--combine"))
+});
+
+pub fn use_cmd() -> bool {
+    USE_CMD_STATE.clone()
 }

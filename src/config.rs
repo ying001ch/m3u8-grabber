@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use tokio::task::AbortHandle;
 use serde::{Deserialize, Serialize};
 
-use crate::{async_runtime, db, http_util, view::TaskView, M3u8Item::M3u8Entity};
+use crate::{async_runtime, db, http_util, use_cmd, view::TaskView, M3u8Item::M3u8Entity};
 
 pub const DEFAULT_WORK_NUM: usize = 16;
 /// 全局配置存储
@@ -206,7 +206,9 @@ pub fn add_task(entity: &M3u8Entity) -> Result<()>{
     guard.insert(task_hash.to_string(), TaskState::from(entity));
 
     // 持久化任务
-    async_runtime::block_on( db::service::add_task(entity))?;
+    if !use_cmd(){
+        async_runtime::block_on( db::service::add_task(entity))?;
+    }
 
     Ok(())
 }
@@ -256,7 +258,7 @@ pub async fn set_signal_async(task_hash: &str, ss: Signal, msg: Option<String>) 
             finished = f.finished;
         }
     }
-    if ok {
+    if ok && !use_cmd() {
         db::service::update_state(task_hash, ss, finished as u32,msg.clone()).await.unwrap();
         log::info!("任务状态改变成功：task_hash:{}, state:{:?}",task_hash, ss);
     }
