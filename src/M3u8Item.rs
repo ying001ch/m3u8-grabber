@@ -68,11 +68,30 @@ impl DownParam {
                 };
             }
         });
+        // 从环境变量获取参数
+        load_from_env(&mut param);
+        // 默认值
         if param.worker_num <= 0 {
             param.worker_num = config::DEFAULT_WORK_NUM;
         }
         log::info!("===>param : {:?}", param);
         param
+    }
+}
+
+fn load_from_env(param: &mut DownParam) {
+    if param.headers.is_none() {
+        param.headers = env::var("H")
+            .or(env::var("headers")).ok();
+    }
+    if param.proxy.is_none() {
+        param.proxy = env::var("proxy").ok();
+    }
+    if param.worker_num <= 0 {
+        param.worker_num = env::var("worker")
+            .ok()
+            .and_then(|f|f.parse().ok())
+            .unwrap_or(0usize);
     }
 }
 //M3u8文件参数
