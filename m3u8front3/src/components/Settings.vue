@@ -1,6 +1,6 @@
 <template>
     <div id="settins">
-        <el-form :model="settings" label-width="auto">
+        <el-form ref="settingFormRef" :model="settings" label-width="auto" @keyup.enter="saveSettings">
             <el-form-item label="代理" >
                 <el-input v-model="settings.proxy"></el-input>
             </el-form-item>
@@ -30,6 +30,7 @@ import { ref, reactive } from 'vue'
 import { invoke } from '@tauri-apps/api'
 import { ElMessageBox } from 'element-plus'
 
+const settingFormRef = ref(null);
 const settings = reactive({
     proxy: '',
     work_num: 16,
@@ -49,11 +50,18 @@ const options = [
 const saveSettings = () => {
     console.log("saveSettings: "+ JSON.stringify(settings))
 
+        // 让表单内的所有输入框脱离焦点
+    const inputs = settingFormRef.value.$el.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.blur();
+        console.log('input blur :'+input.value)
+    });
+
     invoke('save_settings', {"config":{...settings}})
         .then((response) => {
             msgBox(response)
         }).catch((error) => {
-          msgBox(error)
+            msgBox(error)
         })
 }
 const loadSettings = () => {
@@ -84,3 +92,7 @@ function msgBox(msg){
         })
 }
 </script>
+
+<style scoped>
+
+</style>

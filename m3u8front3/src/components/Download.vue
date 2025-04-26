@@ -9,14 +9,17 @@
       </template>
     </el-dropdown>
 
-
     <el-button type="info" @click="pause">暂停</el-button>
     <el-button type="success" @click="resumeTask">继续</el-button>
     <el-button type="danger" @click="deleteTask">删除</el-button>
-    <el-divider />
-    <div class="grid-content ep-bg-purple progress-container" >
-        <!-- 进度条 -->
-        <div v-for="(task) in tasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
+    <!-- 移除分割线 -->
+    <!-- <el-divider /> -->
+
+    <!-- 正在进行的任务 -->
+    <el-collapse v-model="activeCollapse">
+      <el-collapse-item title="进行中" name="1">
+        <div class="grid-content ep-bg-purple progress-container" >
+          <div v-for="(task) in ongoingTasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
             @click="sel(task.task_id)" :key="task.task_id">
             <span>{{task.file_name }}</span> 
             <span style="float: right;">{{task.finished }}/{{task.total }}</span>
@@ -26,17 +29,39 @@
                 <span>已完成 {{(task.progress*100).toFixed(2)}}%</span>
                 <span v-if="task.err_msg">Error: {{task.err_msg}}</span>
             </el-progress>
+          </div>
         </div>
-    </div>
+      </el-collapse-item>
+      <!-- 已完成的任务 -->
+      <el-collapse-item title="已完成" name="2">
+        <div class="grid-content ep-bg-purple progress-container" >
+          <div v-for="(task) in completedTasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
+            @click="sel(task.task_id)" :key="task.task_id">
+            <span>{{task.file_name }}</span> 
+            <span style="float: right;">{{task.finished }}/{{task.total }}</span>
+            <el-progress 
+                :text-inside="true" :stroke-width="30" :percentage="task.progress*100" 
+                :status="status_transfer(task.status)">
+                <span>已完成 {{(task.progress*100).toFixed(2)}}%</span>
+                <span v-if="task.err_msg">Error: {{task.err_msg}}</span>
+            </el-progress>
+          </div>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
+
     <TaskNew ref="taskNewRef" @submit="refresh_list"></TaskNew>
   </div>
 </template>
 
 <script setup>
-import { ref,reactive } from 'vue';
+import { ref, computed } from 'vue';
 import TaskNew from './TaskNew.vue';
 import { invoke } from '@tauri-apps/api'
 import { ElMessageBox } from 'element-plus'
+
+// 新增响应式变量，控制折叠项展开状态
+const activeCollapse = ref(['1']);
 
 //进度条状态
 const success = 'success' 
@@ -65,6 +90,16 @@ const tasks = ref([
     //     total: 45,
     // },
 ]);
+
+// 计算属性：正在进行的任务
+const ongoingTasks = computed(() => {
+  return tasks.value.filter(task => task.status !== 'End');
+});
+
+// 计算属性：已完成的任务
+const completedTasks = computed(() => {
+  return tasks.value.filter(task => task.status === 'End');
+});
 
 const status_transfer = (status) => {
   return map[status];
@@ -98,7 +133,6 @@ const get_progress = (load_db)=>{
 };
 const listen_progress = (tasks_)=>{
     tasks.value = tasks_;
-
     let normal_num = tasks_.filter(t=>t.status== Normal).length
     if (normal_num > 0) {
         setTimeout(get_progress, 1000) 
@@ -185,7 +219,6 @@ function init(){
 init()
 </script>
 
-
 <style>
 .labal-col{
   text-align: right;
@@ -194,11 +227,11 @@ init()
 }
 .header {
   font-size: 20px;
-  display: inline-block; /* 将 span 元素转换为块级元素 */
-  text-align: center; /* 实现水平居中 */
-  line-height: 60px;/* 等于父元素高度 */
-  vertical-align: middle; /* 实现垂直居中 */
-  width: -webkit-fill-available; /* 自动填充宽度 */
+  display: inline-block; 
+  text-align: center; 
+  line-height: 60px;
+  vertical-align: middle; 
+  width: -webkit-fill-available; 
   padding-top: 10px;
 }
 .el-row {
@@ -230,5 +263,10 @@ init()
 }
 .sel{
   background-color:rgba(195, 232, 254, 0.869);
+}
+
+/* 添加新样式，增加折叠组件与上面按钮的距离 */
+.el-collapse {
+  margin-top: 20px; /* 可以根据实际情况调整这个值 */
 }
 </style>
