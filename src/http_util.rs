@@ -73,6 +73,7 @@ pub fn update_client(){
     let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(60))
             .danger_accept_invalid_certs(true) // 忽略证书验证
+            .user_agent("MU1024/1.0")
             ;
 
     let p = get_proxy();
