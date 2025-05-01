@@ -36,6 +36,7 @@ sqlx-sqlite = {version = "0.8.3", features = [ "bundled" ] }
 [dependencies.reqwest]
 version = "0.12.4"
 default-features = false
+# 使用rustls证书，内置证书库可能不全，出现证书错误
 features = ["charset","blocking","rustls-tls"]
 
 [features]

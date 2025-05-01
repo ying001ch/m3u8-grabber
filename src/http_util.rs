@@ -31,23 +31,25 @@ where
     match body {
         Ok(res) => {
             if !res.status().is_success() {
-                return Err(format!("=====> 请求异常，status: {}", res.status()));
+                let resp = format!("{:?}", res);
+                return Err(format!("=====> 请求异常,  resp: {:?} body:{:?},",resp, res.text().await));
             }
             res.bytes().await
                 .map_err(|e| e.to_string())
         },
         Err(err) => {
+            log::error!("error in query bytes: {:?}", err);
             Err(err.to_string())
         }
     }
 }
-pub fn query_bytes(url: &str) ->anyhow::Result<Bytes> {
-    let f = query_bytes_async::<&str,&str>(url, None);
+pub fn query_bytes(url: &str, header: Option<&[(String, String)]>) ->anyhow::Result<Bytes> {
+    let f = query_bytes_async(url, header);
 
     async_runtime::block_on(f).map_err(|e|anyhow!("{}",e))
 }
-pub fn query_text(url: &str) -> Result<String> {
-    let b = query_bytes(url);
+pub fn query_text(url: &str, header: Option<&[(String, String)]>) -> Result<String> {
+    let b = query_bytes(url, header);
     match b {
         Ok(res) => Ok(String::from_utf8_lossy(&res).to_string()),
         Err(err) => {
@@ -69,14 +71,16 @@ fn get_client()-> reqwest::Client{
 pub fn update_client(){
     let mut guard = ASYNC_CLIENT.write().unwrap();
     let mut builder = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60));
+            .timeout(Duration::from_secs(60))
+            .danger_accept_invalid_certs(true) // 忽略证书验证
+            ;
 
-    // let mut builder = reqwest::blocking::Client::builder();
     let p = get_proxy();
     if p.len()>0 {
         let proxy = reqwest::Proxy::all(p.as_str())
                 .expect("socks proxy should be there");
         builder = builder.proxy(proxy);
+        log::info!("use proxy: {}",p);
     }
     let cli = builder.build().expect("build clent failed.");
     *guard = Some(cli);

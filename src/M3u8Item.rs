@@ -112,6 +112,29 @@ pub struct M3u8Entity{
 }
 impl M3u8Entity {
     pub fn from(param: &DownParam) -> Result<M3u8Entity> {
+        let mut entity = Self::default();
+         //设置请求头
+        param.headers.as_ref()
+            .filter(|&f|!f.is_empty())
+            .inspect(|&h|{
+                let v = h.split(";;")
+                    .map(|h|{
+                        match h.find(':') {
+                            Some(idx) => {
+                                let k = &h[0..idx];
+                                let v = &h[idx+1..h.len()];
+                                (k.trim().to_string(),v.trim().to_string())
+                            },
+                            None => {
+                                (h.trim().to_string(),String::new())
+                            }
+                        }
+                    })
+                    .collect();
+                log::info!("headers is :{:?}", v);
+                entity.headers = v;
+            });
+
         let m3u8_file = param.m3u8_file.as_ref();
         let content = 
         if m3u8_file.is_some() && !m3u8_file.unwrap().is_empty(){
@@ -119,12 +142,11 @@ impl M3u8Entity {
         } else {
             //1. 解析m3u8文件
             let m3u8_url = param.address.as_str();
-            http_util::query_text(m3u8_url)?
+            http_util::query_text(m3u8_url, Some(&entity.headers))?
         };
 
 
         // let mut clip_urls = vec![];
-        let mut entity = Self::default();
         entity.no_combine = param.no_combine;
         // temp_path
         entity.temp_path = param.temp_path.clone()
@@ -172,28 +194,6 @@ impl M3u8Entity {
         //----------------------------------------------------------------
         entity.process(param)?;
 
-         //设置请求头
-        param.headers.as_ref()
-            .filter(|&f|!f.is_empty())
-            .inspect(|&h|{
-                let v = h.split(";;")
-                    .map(|h|{
-                        match h.find(':') {
-                            Some(idx) => {
-                                let k = &h[0..idx];
-                                let v = &h[idx+1..h.len()];
-                                (k.trim().to_string(),v.trim().to_string())
-                            },
-                            None => {
-                                (h.trim().to_string(),String::new())
-                            }
-                        }
-                    })
-                    .collect();
-                log::info!("headers is :{:?}", v);
-                entity.headers = v;
-            });
-        
         Ok(entity)
     }
     /**
@@ -229,7 +229,7 @@ impl M3u8Entity {
             key_url = self.url_prefix.as_ref().unwrap().to_string() + &key_url;
         }
         log::info!("req_key key_url={}", key_url);
-        let raw_bytes = http_util::query_bytes(&key_url)?;
+        let raw_bytes = http_util::query_bytes(&key_url, None)?;
         if raw_bytes.len() != 16 {
             bail!("requested key length is not 16")
         }
