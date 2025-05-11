@@ -50,9 +50,9 @@ const form = reactive(
     {
         address:"",
         save_path:"",
-        combine_dir:"",
-        headers:"",
-        key_str:"",
+        combine_dir: null,
+        headers: null,
+        key_str: null,
         task_type:1,
         no_combine:false,
     }

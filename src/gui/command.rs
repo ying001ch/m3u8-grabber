@@ -75,7 +75,7 @@ pub fn get_progress(load_db: bool) -> Vec<TaskView>{
 #[tauri::command]
 pub fn save_settings(config: GlobalConfig) -> Result<&'static str,String>{
     log::info!("save_settings: {:?}",&config);
-    config::set_global_settings(&config);
+    config::set_global_settings(&config, true);
     return Ok("保存成功");
 }
 #[tauri::command]

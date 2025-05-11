@@ -49,7 +49,7 @@ impl DownParam {
             }else if s.contains("--temp="){ //碎片文件存放目录
                 param.temp_path = Some(s.replace("--temp=",""));
             }else if s.contains("--key="){ //解密Key
-                param.key_str = Some(s.replace("--key=",""));
+                param.key_str = Some(s.replace("--key=","")).filter(|s|!s.is_empty());
             }else if s.contains("--worker="){ //下载线程数
                 param.worker_num = s.replace("--worker=", "")
                     .parse()
@@ -216,11 +216,14 @@ impl M3u8Entity {
             return Ok(());
         }
 
-        if let Some(ref s) = param.key_str {
-            self.key = hex2_byte(s).map_err(|e: anyhow::Error|{
-                anyhow!(format!("key_str 解析错误: {}", e))
-            })?;
-            return Ok(());
+        match param.key_str {
+            Some(ref s) if !s.is_empty() => {
+                self.key = hex2_byte(s).map_err(|e: anyhow::Error|{
+                    anyhow!(format!("key_str 解析错误: {}", e))
+                })?;
+                return Ok(());
+            },
+            _ => {}
         }
 
         let first_key = self.media_play_list.segments[0].key.as_ref().unwrap();
@@ -266,7 +269,7 @@ fn parse_key(mm: &mut M3u8Entity, line: &str) {
     }
 }
 
-pub fn hex2_byte(mut val: & str) -> Result<[u8; 16]> {
+pub fn hex2_byte(mut val: &str) -> Result<[u8; 16]> {
     if val.starts_with("0x") {
         val = &val[2..];
     }

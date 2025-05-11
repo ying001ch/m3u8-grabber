@@ -70,12 +70,17 @@ fn get_client()-> reqwest::Client{
 }
 pub fn update_client(){
     let mut guard = ASYNC_CLIENT.write().unwrap();
+    *guard = Some(create_client());
+    log::info!("update client success.")
+}
+
+fn create_client() -> reqwest::Client {
     let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(60))
             .danger_accept_invalid_certs(true) // 忽略证书验证
             .user_agent("MU1024/1.0")
             ;
-
+    
     let p = get_proxy();
     if p.len()>0 {
         let proxy = reqwest::Proxy::all(p.as_str())
@@ -84,9 +89,8 @@ pub fn update_client(){
         log::info!("use proxy: {}",p);
     }
     let cli = builder.build().expect("build clent failed.");
-    *guard = Some(cli);
-    log::info!("update client success.")
-}
+    cli
+    }
 fn get_proxy()-> String {
     config::get_proxys()
 }

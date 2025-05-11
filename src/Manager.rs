@@ -34,12 +34,13 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
             work_num: param.worker_num,
             proxy: param.proxy.clone(),
             combine_type: param.combine_type,
-        });
+        }, false);
     }
     match param.task_type {
         //下载任务
         config::TASK_DOWN => {
             let entity = M3u8Item::M3u8Entity::from(&param)?;
+            config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
             run(entity, async_task)
         },
         //合并任务
@@ -106,7 +107,7 @@ fn validate_param(param: &DownParam)-> Result<()>{
 }
 /// 运行下载任务
 fn run(entity: M3u8Item::M3u8Entity, async_task: bool) -> Result<()>{
-    config::add_task(&entity)?; //使用片段临时路径 创建任务状态信息
+    config::set_signal(&entity.temp_path, Signal::Normal,None);
     let one = async move {
         let entity = &entity;
         let temp_path = entity.temp_path.as_str();

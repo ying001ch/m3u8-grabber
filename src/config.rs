@@ -86,15 +86,17 @@ impl TaskState {
     }
 }
 //----------------------------------------------------------------
-pub fn set_global_settings(config: &GlobalConfig){
-    persistence_settings(config);
+pub fn set_global_settings(config: &GlobalConfig, persistence: bool){
+    if persistence{
+        persistence_settings(config);
+    }
     *GLOBAL_CONFIG.write().unwrap() = config.clone();
     http_util::update_client();
 }
 pub fn load_global_settings() -> GlobalConfig{
     let settings = match load_from_persistence(){
         Ok(c)=>{
-            set_global_settings(&c);
+            set_global_settings(&c,false);
             c
         },
         Err(e)=>{
@@ -168,7 +170,12 @@ pub async fn load_tasks() -> Result<()>{
     log::info!("---> 加载历史任务");
     let tasks = db::service::list_all().await?;
     let mut guard = TASK_MAP.write().unwrap();
+    if !guard.is_empty(){
+        log::warn!("TASK_MAP is not empty, skip load tasks from db");
+        return Ok(());
+    }
     for mut t in tasks{
+        log::info!("历史任务 hash:{} state:{:?} fname:{}",t.hash, t.state, t.file_name);
         let cnt = t.meta.content.as_str();
         let m3u8_result = m3u8_rs::parse_media_playlist_res(cnt.as_bytes());
         match m3u8_result {
