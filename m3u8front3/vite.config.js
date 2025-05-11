@@ -14,6 +14,10 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173
+    port: 5173,
+    watch: {
+      // 3. tell vite to ignore watching `src-tauri`
+      ignored: ["**/m3u8-front3/**"],
+    },
   }
 })

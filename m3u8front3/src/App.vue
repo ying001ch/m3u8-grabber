@@ -12,7 +12,6 @@
 </template>
 
 <script setup>
-import { invoke } from '@tauri-apps/api'
 import { ElMessageBox } from 'element-plus'
 import { ref } from 'vue';
 import Download from './components/Download.vue';

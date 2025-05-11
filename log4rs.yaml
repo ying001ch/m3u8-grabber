@@ -12,7 +12,7 @@ appenders:
       # 详细文档： https://docs.rs/log4rs/latest/log4rs/encode/pattern/index.html#formatters
       pattern: "[{d(%Y-%m-%dT%H:%M:%S%.3f)} {h({l}):<5.5} {T} {M}] {m}{n}"
 root:
-  level: debug
+  level: info
   appenders:
     - stdout
     - requests

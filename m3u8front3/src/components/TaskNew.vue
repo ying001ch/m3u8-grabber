@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { invoke } from '@tauri-apps/api'
+import { invoke } from '@tauri-apps/api/core'
 import { reactive, ref } from 'vue';
 import { ElMessageBox } from 'element-plus'
 

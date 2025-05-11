@@ -27,7 +27,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { invoke } from '@tauri-apps/api'
+import { invoke } from '@tauri-apps/api/core'
 import { ElMessageBox } from 'element-plus'
 
 const settingFormRef = ref(null);

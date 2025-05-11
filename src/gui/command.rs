@@ -14,7 +14,7 @@ pub fn start_tauri(){
     //启动图形界面
   tauri::Builder::default()
   .setup(|app| {
-    let window = app.get_window("main").unwrap();
+    let window = app.get_webview_window("main").unwrap();
     // 生产环境禁用右键菜单
     if !cfg!(debug_assertions) {
       window.eval(&format!("window.addEventListener('contextmenu', e => e.preventDefault());"))?;

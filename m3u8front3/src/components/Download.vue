@@ -57,7 +57,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import TaskNew from './TaskNew.vue';
-import { invoke } from '@tauri-apps/api'
+import { invoke } from '@tauri-apps/api/core'
 import { ElMessageBox } from 'element-plus'
 
 // 新增响应式变量，控制折叠项展开状态

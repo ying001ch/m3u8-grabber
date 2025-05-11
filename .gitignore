@@ -9,3 +9,4 @@ node_modules/
 *.m3u8
 settings.json
 local.db
+/gen
