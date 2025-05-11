@@ -63,8 +63,15 @@ pub fn resume(task_hash: &str) -> Result<&str,String>{
     return Manager::resume_task(task_hash).map_err(|e|e.to_string());
 }
 #[tauri::command]
-pub fn delete_task(task_hash: &str) -> Result<& str,String>{
-    return Manager::delete_task(task_hash).map_err(|e|e.to_string());
+pub fn delete_task(task_hash: Vec<String>) -> Result<Vec<String>,String>{
+    let mut success_task = vec![];
+    for hash in task_hash.iter(){
+        if let Err(e) = config::delete_task(hash) {
+            return Err(e.to_string());
+        }
+        success_task.push(hash.to_string());
+    }
+    return Ok(success_task);
 }
 /// 修改成获取状态 TaskView
 #[tauri::command]

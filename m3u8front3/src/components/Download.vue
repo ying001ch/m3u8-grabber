@@ -19,7 +19,7 @@
     <el-collapse v-model="activeCollapse">
       <el-collapse-item title="进行中" name="1">
         <div class="grid-content ep-bg-purple progress-container" >
-          <div v-for="(task) in ongoingTasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
+          <div v-for="(task) in ongoingTasks" :class="{progress_item:true, sel:(sel_ids.includes(task.task_id))}" 
             @click="sel(task.task_id)" :key="task.task_id">
             <span>{{task.file_name }}</span> 
             <span style="float: right;">{{task.finished }}/{{task.total }}</span>
@@ -35,7 +35,7 @@
       <!-- 已完成的任务 -->
       <el-collapse-item title="已完成" name="2">
         <div class="grid-content ep-bg-purple progress-container" >
-          <div v-for="(task) in completedTasks" :class="{progress_item:true, sel:(task.task_id == sel_id)}" 
+          <div v-for="(task) in completedTasks" :class="{progress_item:true, sel:sel_ids.includes(task.task_id)}" 
             @click="sel(task.task_id)" :key="task.task_id">
             <span>{{task.file_name }}</span> 
             <span style="float: right;">{{task.finished }}/{{task.total }}</span>
@@ -140,13 +140,14 @@ const listen_progress = (tasks_)=>{
         refresh_flag.value = false
     }
 };
-const sel_id = ref(-1);
+const sel_ids = ref([]);
 const sel = (task_id)=>{
-  if(sel_id.value == task_id){
-    sel_id.value = -1
-    return;
+  const index = sel_ids.value.indexOf(task_id);
+  if(index > -1){
+    sel_ids.value.splice(index, 1);
+  } else {
+    sel_ids.value.push(task_id);
   }
-  sel_id.value = task_id
 };
 function msgBox(msg){
   ElMessageBox.alert(msg, {
@@ -161,57 +162,65 @@ function msgBox(msg){
 const signal = ref('');
 const pause = ()=>{
   if(tasks.value.length <= 0){
-    msgBox('没有正在运行的任务')
+    msgBox('没有正在运行的任务');
     return;
   }
-  if(sel_id.value < 0){
-    msgBox('请先选中任务')
+  if(sel_ids.value.length === 0){
+    msgBox('请先选中任务');
     return;
   }
-  console.log('暂停下载：task_id: ' + sel_id.value)
-  //传参数要传成驼峰格式
-  invoke('pause', {taskHash: sel_id.value})
-    .then((response) => {
-      msgBox(response)
-    }).catch((error) => {
-          msgBox(error)
-        })
-    signal.value = 'pause'
+  sel_ids.value.forEach(task_id => {
+    console.log('暂停下载：task_id: ' + task_id);
+    //传参数要传成驼峰格式
+    invoke('pause', {taskHash: task_id})
+      .then((response) => {
+        msgBox(response);
+      }).catch((error) => {
+            msgBox(error);
+          });
+    signal.value = 'pause';
+  });
 };
 const deleteTask = ()=>{
-  if(sel_id.value < 0){
-    msgBox('请先选中任务')
+  if(sel_ids.value.length === 0){
+    msgBox('请先选中任务');
     return;
   }
-
-  const indexToRemove = tasks.value.findIndex(item => item.task_id === sel_id.value);
-  invoke('delete_task', {taskHash: sel_id.value})
-    .then((response) => {
-      if (indexToRemove !== -1) {
-        tasks.value.splice(indexToRemove, 1);
-      }
-      msgBox(response)
-    }).catch((error) => {
-          msgBox(error)
+  let sel_copy = sel_ids.value;
+  invoke('delete_task', {taskHash: sel_ids.value})
+      .then((response) => {
+        console.log("delete task resp:"+ JSON.stringify(response));
+        if (Array.isArray(response)) {
+          msgBox("操作成功");
+        }else{
+          msgBox(response);
+        }
+        sel_copy.forEach(task_id => {
+          const indexToRemove = tasks.value.findIndex(item => item.task_id === task_id);
+          tasks.value.splice(indexToRemove, 1);
         })
-
-}
+      }).catch((error) => {
+            msgBox(error);
+          });
+  sel_ids.value = [];
+};
 const resumeTask = ()=>{
-  if(sel_id.value < 0){
-    msgBox('请先选中任务')
+  if(sel_ids.value.length === 0){
+    msgBox('请先选中任务');
     return;
   }
-  //--------------------
-  console.log('继续下载：task_id: ' + sel_id.value)
-  invoke('resume', {taskHash: sel_id.value})
-    .then((response) => {
-      get_progress();
-      msgBox(response)
-    }).catch((error) => {
-          msgBox(error)
-        })
-  signal.value = 'resume'
-}
+  sel_ids.value.forEach(task_id => {
+    console.log('继续下载：task_id: ' + task_id);
+    invoke('resume', {taskHash: task_id})
+      .then((response) => {
+        get_progress();
+        msgBox(response);
+      }).catch((error) => {
+            msgBox(error);
+          });
+    signal.value = 'resume';
+  });
+};
 
 function init(){
   get_progress(true);
