@@ -145,6 +145,7 @@ fn run(entity: M3u8Item::M3u8Entity, async_task: bool) -> Result<()>{
 async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
     let clips = Arc::new(entity.media_play_list.segments.clone());
     let temp_path = &entity.temp_path;
+    config::clear_prog(&temp_path);
     let nd = entity.need_decode();
     let key = entity.key;
     let iv = entity.iv;

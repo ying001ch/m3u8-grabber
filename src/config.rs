@@ -201,6 +201,11 @@ pub fn add_prog(task_hash: &str) {
         .get_mut(task_hash)
         .map(|t|t.finished += 1);
 }
+pub fn clear_prog(task_hash: &str) {
+    TASK_MAP.write().unwrap()
+        .get_mut(task_hash)
+        .map(|t|t.finished = 0);
+}
 //----------------------------------------------------------------
 pub fn add_task(entity: &M3u8Entity) -> Result<()>{
     let mut guard = TASK_MAP.write().unwrap();
