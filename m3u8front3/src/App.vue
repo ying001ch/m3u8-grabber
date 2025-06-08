@@ -13,9 +13,58 @@
 
 <script setup>
 import { ElMessageBox } from 'element-plus'
-import { ref } from 'vue';
+import { ref, computed,onMounted } from 'vue';
 import Download from './components/Download.vue';
 import Settings from './components/Settings.vue';
+import { TrayIcon } from '@tauri-apps/api/tray';
+import { defaultWindowIcon } from '@tauri-apps/api/app';
+import { Menu } from '@tauri-apps/api/menu';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
+async function addTrayIcon(){
+  const menu = await Menu.new({
+    items: [
+      {
+        id: 'show',
+        text: 'Show',
+        action: async() => {
+          await getCurrentWindow().show();
+          console.log('show pressed');
+        },
+      },
+      {
+        id: 'quit',
+        text: 'Quit',
+        action: async() => {
+          await getCurrentWindow().destroy()
+          console.log('quit pressed');
+        },
+      },
+    ],
+  });
+
+  const icon = await defaultWindowIcon();
+  console.log('icon=',icon)
+  const options = {
+    icon: icon || undefined,  // Convert null to undefined if icon is null
+    menu,
+    menuOnLeftClick: true,
+    tooltip: "m3u8-grabber",
+  };
+
+  const trayId = sessionStorage.getItem('tray')
+  console.log('old trayId=',trayId)
+  if(!trayId){
+      const tray = await TrayIcon.new(options)
+      sessionStorage.setItem('tray', tray.id);
+
+    }
+    const currentWindow = getCurrentWindow();
+    currentWindow.listen('tauri://close-requested',()=>{
+      console.log('close pressed')
+      currentWindow.hide();
+    })
+}
 
 
 const dialogRef = ref(null);
@@ -48,6 +97,13 @@ const map = {
   Exception: exception,
 }
 let refresh_flag = false // 刷新标识
+
+onMounted(async () => {
+  addTrayIcon().then(()=>{
+    console.log('add tray icon success')
+  });
+})
+
 function msgBox(msg){
   ElMessageBox.alert(msg, {
           // if you want to disable its autofocus

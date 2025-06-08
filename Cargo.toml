@@ -17,7 +17,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 # reqwest = { version = "0.11.18", features = ["blocking"] }
 aes = "0.7.4"
 block-modes = "0.8.1"
