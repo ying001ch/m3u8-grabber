@@ -39,7 +39,8 @@ pub fn start_tauri(){
 #[tauri::command]
 pub fn submit_task(param_str: &str) -> Result<&str, String>{
     log::debug!("raw str: {}",param_str);
-    let param: DownParam = serde_json::from_str(param_str).unwrap();
+    let param: DownParam = serde_json::from_str(param_str)
+        .map_err(|e| format!("参数解析失败: {}", e))?;
     log::info!("deserialized = {:?}", param);
 
     Manager::dispatch(param,true).map(|_|"提交成功").map_err(|e|e.to_string())
@@ -47,7 +48,8 @@ pub fn submit_task(param_str: &str) -> Result<&str, String>{
 /// 合并视频片段
 #[tauri::command]
 pub fn combine_cmd(param_str: &str) -> Result<&str, String>{
-    let param: DownParam = serde_json::from_str(param_str).unwrap();
+    let param: DownParam = serde_json::from_str(param_str)
+        .map_err(|e| format!("参数解析失败: {}", e))?;
     println!("combine deserialized = {:?}", param);
     Manager::dispatch(param,true).map(|_|"合并任务提交成功！").map_err(|e|e.to_string())
 }
