@@ -52,14 +52,6 @@ CREATE TABLE if not exists TaskEntity (
 "#;
 
 impl<'r> FromRow<'r, SqliteRow> for TaskState
-where
-    // R: SqliteRow,
-    usize: ColumnIndex<SqliteRow>,
-    String: Decode<'r, Sqlite> + Type<Sqlite>,
-    i32: Decode<'r, Sqlite> + Type<Sqlite>,
-    bool: Decode<'r, Sqlite> + Type<Sqlite>,
-    Option<String>: Decode<'r, Sqlite> + Type<Sqlite>,
-    &'r [u8]: Decode<'r, Sqlite> + Type<Sqlite>,
 {
     fn from_row(row:  &'r SqliteRow) -> Result<Self, sqlx::Error> {
         let mut en: M3u8Entity = M3u8Entity::default();
