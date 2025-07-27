@@ -3,10 +3,12 @@ pub mod util;
 
 use std::{sync::LazyLock, thread};
 
+use db_derive::DbInsertable;
 use sqlx::{prelude::*, sqlite::SqlitePoolOptions, Pool, Sqlite};
+use sqlx_sqlite::SqliteArguments;
 use util::decode_headers;
 
-use crate::{async_runtime, config::TaskState, M3u8Item::M3u8Entity};
+use crate::{async_runtime, config::{Signal, TaskState}, db::util::encode_headers, M3u8Item::M3u8Entity};
 
 static POOL: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
     thread::spawn(||{
@@ -41,9 +43,21 @@ CREATE TABLE if not exists TaskEntity (
 );
 "#;
 
+pub trait DbInsertable { 
+    fn insert_statement() -> String;
+
+    fn as_arguments(&self) -> SqliteArguments<'_>;
+}
+#[derive(Debug,DbInsertable)]
+struct Dog {
+    hobby: String,
+    age: i32,
+    name: String,
+
+}
 /// 忽略未使用的字段提示
 #[allow(dead_code)]
-#[derive(FromRow, Debug)]
+#[derive(FromRow, Debug, DbInsertable, Default)]
 pub struct TaskEntity {
     id: u32,
     err_msg: String,
@@ -62,6 +76,31 @@ pub struct TaskEntity {
     save_path: String,
     temp_path: String,
     no_combine: bool,
+}
+impl From<&M3u8Entity> for TaskEntity {
+    fn from(entity: &M3u8Entity) -> Self {
+        let mut def = TaskEntity::default();
+        def.hash = entity.temp_path.clone();
+        def.total = entity.clip_num() as u32;
+        def.state = Signal::Normal as u32;
+        def.file_name = entity.save_path.clone();
+        def.media_play_list = {
+            let mut s = Vec::new();
+            entity.media_play_list.write_to(&mut s).unwrap();
+            String::from_utf8_lossy(&s).to_string()
+        };
+        def.key = entity.key.into();
+        def.iv = entity.iv.into();
+        def.key_num = entity.key_num as u32;
+
+        def.headers = encode_headers(&entity.headers);
+        def.url_prefix = entity.url_prefix.clone();
+        def.save_path = entity.save_path.clone();
+        def.temp_path = entity.temp_path.clone();
+        def.no_combine = entity.no_combine;
+
+        def
+    }
 }
 impl Into<TaskState> for TaskEntity {
     fn into(self) -> TaskState {
@@ -155,4 +194,15 @@ async fn main() -> Result<(), sqlx::Error> {
     }
 
     Ok(())
+}
+#[test]
+fn test_macro() {
+    let dog = Dog{name: "Dog".to_string(), age: 1, hobby: "hobby".to_string()};
+
+    let ins = Dog::insert_statement();
+    println!("ins: {}", ins);
+
+    let st = dog.as_arguments();
+    println!("st: {:?}", st);
+
 }

@@ -11,6 +11,7 @@ dependencies = [
  "base64 0.21.7",
  "block-modes",
  "bytes",
+ "db-derive",
  "lazy_static",
  "log",
  "log4rs",
@@ -640,6 +641,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
 dependencies = [
  "darling_core",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "db-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
  "quote",
  "syn 2.0.101",
 ]

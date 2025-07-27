@@ -1,39 +1,15 @@
-use crate::{config::{Signal, TaskState}, db::{get_conn, util::encode_headers, TaskEntity}, M3u8Item::M3u8Entity};
+
+use crate::{config::{Signal, TaskState}, db::{get_conn, DbInsertable, TaskEntity}, M3u8Item::M3u8Entity};
 
 
-
-const INSERT_TASK: &str = r#"
-INSERT INTO TaskEntity (
-    err_msg, hash, total, finished, state, 
-    file_name, media_play_list, key, iv, key_num, 
-    headers, url_prefix, save_path, temp_path, no_combine
-) VALUES (
-    ?,?,?,?,?,
-    ?,?,?,?,?,
-    ?,?,?,?,?
-);
-"#;
 pub async fn add_task(entity: &M3u8Entity) -> anyhow::Result<()> {
-    let res = sqlx::query(INSERT_TASK)
-        .bind("")
-        .bind(entity.temp_path.as_str())
-        .bind(entity.clip_num() as u32)
-        .bind(0) //finished
-        .bind(Signal::Normal as u32) // state
-        .bind(entity.save_path.as_str()) 
-        .bind({
-            let mut s = Vec::new();
-            entity.media_play_list.write_to(&mut s).unwrap();
-            String::from_utf8_lossy(&s).to_string()
-        }) // playList
-        .bind(&entity.key[..]) // key
-        .bind(&entity.iv[..]) // iv
-        .bind(entity.key_num as u32) // key_num
-        .bind(encode_headers(&entity.headers)) // headers
-        .bind(entity.url_prefix.as_ref()) // url_prefix
-        .bind(entity.save_path.as_str()) // save_path
-        .bind(entity.temp_path.as_str()) // temp_path
-        .bind(entity.no_combine) // no_combine
+    let task_entity = TaskEntity::from(entity);
+    let argus = task_entity.as_arguments();
+    // let mut qeryas = sqlx::query(TaskEntity::insert_statement().as_str());
+    // for a in argus.{
+    //     qeryas = qeryas.bind(a);
+    // }
+    let res = sqlx::query_with(TaskEntity::insert_statement().as_str(), argus)
         .execute(get_conn())
         .await?;
     println!("last_insert_rowid: {:?}", res.last_insert_rowid());
@@ -89,7 +65,7 @@ pub async fn list_task(state: Signal) -> anyhow::Result<Vec<TaskEntity>> {
 #[tokio::test]
 pub async fn tests_add() -> anyhow::Result<()> {
     let mut en = M3u8Entity::default();
-    en.temp_path = "456".to_string();
+    en.temp_path = "--Asd123+++".to_string();
     en.save_path = "798".to_string();
     en.headers = vec![("agent".to_string(), "postman".to_string())];
     en.url_prefix = Some("https://baidu.com".to_string());
@@ -109,7 +85,7 @@ pub async fn tests_add() -> anyhow::Result<()> {
 }
 #[tokio::test]
 pub async fn tests_update() -> anyhow::Result<()> {
-    update_state("456", Signal::End, 10, None).await?;
+    update_state("--Asd123+++", Signal::End, 10, None).await?;
     
     let list = list_task(Signal::End).await?;
     list.iter().for_each(|f|{
@@ -120,7 +96,7 @@ pub async fn tests_update() -> anyhow::Result<()> {
 }
 #[tokio::test]
 pub async fn tests_del() -> anyhow::Result<()> {
-    del_task("").await?;
+    del_task("--Asd123+++").await?;
     
     let list = list_task(Signal::Pause).await?;
     println!("list : {:?}", list);
@@ -129,7 +105,8 @@ pub async fn tests_del() -> anyhow::Result<()> {
 }
 #[tokio::test]
 pub async fn tests_list() -> anyhow::Result<()> {
-    let list = list_all().await?;
+    let list = list_task(Signal::End).await?;
+    // let list = list_all().await?;
     list.iter().for_each(|f|{
         println!("row : {:?}", f);
     });
