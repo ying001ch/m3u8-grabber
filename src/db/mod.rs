@@ -3,34 +3,24 @@ pub mod util;
 
 use std::{sync::LazyLock, thread};
 
-use m3u8_rs::MediaPlaylist;
-use sqlx::{prelude::*, sqlite::SqlitePoolOptions, ColumnIndex, Pool, Sqlite};
-use sqlx_sqlite::SqliteRow;
+use sqlx::{prelude::*, sqlite::SqlitePoolOptions, Pool, Sqlite};
 use util::decode_headers;
 
-use crate::{async_runtime, config::{Signal, TaskState}, M3u8Item::M3u8Entity};
+use crate::{async_runtime, config::TaskState, M3u8Item::M3u8Entity};
 
-pub struct TaskEntity {
-    id: u32,
-    err_msg: String,
-    hash: String, // taskId
-    total: usize,
-    finished: usize,
-    state: Signal,
-    file_name: String,
-    media_play_list: MediaPlaylist,
-    key: [u8; 16],
-    iv: [u8; 16],
-    key_num: usize,
-
-    headers: Vec<(String, String)>,
-    url_prefix: Option<String>,
-    save_path: String,
-    temp_path: String,
-    no_combine: bool,
-}
-
-const create_table_sql: &str = r#"
+static POOL: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
+    thread::spawn(||{
+        async_runtime::block_on(async {
+            let db = SqlitePoolOptions::new()
+                .max_connections(5)
+                .connect("sqlite://local.db?mode=rwc")
+                .await.unwrap();
+            init_table(&db).await.unwrap();
+            db
+        })
+    }).join().unwrap()
+});
+const CREATE_TABLE_SQL: &str = r#"
 CREATE TABLE if not exists TaskEntity (
     id INTEGER PRIMARY KEY,                     --0 u32
     err_msg TEXT NOT NULL,                      -- String
@@ -51,59 +41,63 @@ CREATE TABLE if not exists TaskEntity (
 );
 "#;
 
-impl<'r> FromRow<'r, SqliteRow> for TaskState
-where
-    // R: SqliteRow,
-    usize: ColumnIndex<SqliteRow>,
-    String: Decode<'r, Sqlite> + Type<Sqlite>,
-    i32: Decode<'r, Sqlite> + Type<Sqlite>,
-    bool: Decode<'r, Sqlite> + Type<Sqlite>,
-    Option<String>: Decode<'r, Sqlite> + Type<Sqlite>,
-    &'r [u8]: Decode<'r, Sqlite> + Type<Sqlite>,
-{
-    fn from_row(row:  &'r SqliteRow) -> Result<Self, sqlx::Error> {
+/// 忽略未使用的字段提示
+#[allow(dead_code)]
+#[derive(FromRow, Debug)]
+pub struct TaskEntity {
+    id: u32,
+    err_msg: String,
+    hash: String, // taskId
+    total: u32,
+    finished: u32,
+    state: u32,
+    file_name: String,
+    media_play_list: String,
+    key: Box<[u8]>,
+    iv: Box<[u8]>,
+    key_num: u32,
+
+    headers: String,
+    url_prefix: Option<String>,
+    save_path: String,
+    temp_path: String,
+    no_combine: bool,
+}
+impl Into<TaskState> for TaskEntity {
+    fn into(self) -> TaskState {
         let mut en: M3u8Entity = M3u8Entity::default();
         
         // en.total = row.try_get::<usize,_>(3)?;
-        en.content = row.try_get::<String,_>("media_play_list")?;
-        en.key.copy_from_slice( row.try_get::<&[u8],_>("key")?);
-        en.iv.copy_from_slice( row.try_get::<&[u8],_>("iv")?);
-        en.key_num = row.try_get::<i32,_>("key_num")? as usize;
+        en.content = self.media_play_list;
+        // en.key.copy_from_slice( row.try_get::<&[u8],_>("key")?);
+        en.key.copy_from_slice(&self.key);
+        en.iv.copy_from_slice(&self.iv);
+        en.key_num = self.key_num as usize;
 
-        en.headers = decode_headers(row.try_get::<String,_>("headers")?);
-        en.url_prefix = row.try_get::<Option<String>,_>("url_prefix")?;
-        en.save_path = row.try_get::<String,_>("save_path")?;
-        en.temp_path = row.try_get::<String,_>("temp_path")?;
-        en.no_combine = row.try_get::<bool,_>("no_combine")?;
+        en.headers = decode_headers(self.headers);
+        en.url_prefix = self.url_prefix;
+        en.save_path = self.save_path;
+        en.temp_path = self.temp_path;
+        en.no_combine = self.no_combine;
 
         let mut task = TaskState::from(&en);
         task.set_ext(
-            row.try_get::<u32,_>("finished")? as usize,
-            (row.try_get::<u32,_>("state")? as usize).into(),
-            row.try_get::<String,_>("err_msg")?.as_str(),
+            self.finished as usize,
+            // self.state,
+            (self.state as usize).into(),
+            &self.err_msg,
         );
         
-        Ok(task)
+        task
     }
 }
-static POOL: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
-    thread::spawn(||{
-        async_runtime::block_on(async {
-            let db = SqlitePoolOptions::new()
-                .max_connections(5)
-                .connect("sqlite://local.db?mode=rwc")
-                .await.unwrap();
-            init_table(&db).await.unwrap();
-            db
-        })
-    }).join().unwrap()
-});
+
 pub fn get_conn() -> &'static Pool<Sqlite>{
     &POOL
 }
 pub async fn init_table(db: &Pool<Sqlite>) -> Result<(), sqlx::Error>{
     // 执行 SQL 语句来创建表
-    sqlx::query(create_table_sql)
+    sqlx::query(CREATE_TABLE_SQL)
        .execute(db)
        .await?;
     Ok(())
@@ -114,7 +108,7 @@ async fn test_create_table() -> Result<(), sqlx::Error> {
     let db = get_conn();
 
     // 执行 SQL 语句来创建表
-    let res = sqlx::query(create_table_sql)
+    let res = sqlx::query(CREATE_TABLE_SQL)
        .execute(db)
        .await?;
     println!("rows_affected: {}", res.rows_affected());

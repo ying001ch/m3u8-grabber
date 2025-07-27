@@ -1,4 +1,4 @@
-use crate::{config::{Signal, TaskState}, db::{get_conn, util::encode_headers}, M3u8Item::M3u8Entity};
+use crate::{config::{Signal, TaskState}, db::{get_conn, util::encode_headers, TaskEntity}, M3u8Item::M3u8Entity};
 
 
 
@@ -65,15 +65,19 @@ pub async fn del_task(hash: &str) -> anyhow::Result<u64> {
     Ok(res.rows_affected()) 
 }
 pub async fn list_all() -> anyhow::Result<Vec<TaskState>> {
-    let res = sqlx::query_as::<_,TaskState>("select * from TaskEntity
+    let res = sqlx::query_as::<_,TaskEntity>("select * from TaskEntity
             order by id desc")
          .fetch_all(get_conn())
-        .await?;
+        .await?
+        .into_iter()
+        .map(|entity| entity.into())
+        .collect();
 
     Ok(res)
 }
-pub async fn list_task(state: Signal) -> anyhow::Result<Vec<TaskState>> {
-    let res = sqlx::query_as::<_,TaskState>("select * from TaskEntity
+#[allow(dead_code)]
+pub async fn list_task(state: Signal) -> anyhow::Result<Vec<TaskEntity>> {
+    let res = sqlx::query_as::<_,TaskEntity>("select * from TaskEntity
             where state = ?
             order by id desc")
         .bind(state as u32)
@@ -120,6 +124,15 @@ pub async fn tests_del() -> anyhow::Result<()> {
     
     let list = list_task(Signal::Pause).await?;
     println!("list : {:?}", list);
+
+    Ok(())
+}
+#[tokio::test]
+pub async fn tests_list() -> anyhow::Result<()> {
+    let list = list_all().await?;
+    list.iter().for_each(|f|{
+        println!("row : {:?}", f);
+    });
 
     Ok(())
 }
