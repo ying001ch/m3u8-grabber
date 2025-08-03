@@ -228,11 +228,6 @@ pub fn delete_task(task_hash: &str) -> Result<M3u8Entity>{
     if let Some(v) = TASK_MAP.write().unwrap().remove(task_hash){
         async_runtime::block_on(db::service::del_task(task_hash))?;
 
-        // 删除临时文件夹
-        if let Err(e) = std::fs::remove_dir_all(v.meta.temp_path.clone()){
-            log::error!("delete temp path error: {:?}", e);
-            return Err(anyhow::anyhow!(e));
-        }
         log::info!("task state is deleted. hash:{:?} fileName:{}",v.hash,v.file_name);
         Ok(v.meta)
     }else{

@@ -80,9 +80,11 @@ pub fn delete_task(task_hash: &str) -> Result<&str>{
         // 删除临时文件
         let entity = config::delete_task(task_hash)?;
         if Path::new(&entity.temp_path).exists(){
-            std::fs::remove_dir_all(entity.temp_path).context("删除临时文件失败")?;
+            if std::fs::remove_dir_all(entity.temp_path.as_str()).is_err(){
+                log::warn!("删除临时文件失败:{}", entity.temp_path);
+            }
         }
-        log::info!("删除临时文件完成！");
+        log::info!("删除任务完成！");
         Ok("操作成功")
     }else {
         bail!("没有找到任务")

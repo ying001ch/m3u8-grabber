@@ -68,7 +68,7 @@ pub fn resume(task_hash: &str) -> Result<&str,String>{
 pub fn delete_task(task_hash: Vec<String>) -> Result<Vec<String>,String>{
     let mut success_task = vec![];
     for hash in task_hash.iter(){
-        if let Err(e) = config::delete_task(hash) {
+        if let Err(e) = Manager::delete_task(hash) {
             return Err(e.to_string());
         }
         success_task.push(hash.to_string());
