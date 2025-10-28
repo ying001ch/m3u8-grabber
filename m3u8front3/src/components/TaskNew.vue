@@ -61,6 +61,14 @@ const open = (task_type_) => {
     console.log('open:'+task_type);
     task_type.value = task_type_
     dialogShow.value = true;
+    // 预填充保存路径为上次目录
+    invoke('load_settings')
+      .then((resp)=>{
+        if(resp && resp.last_save_dir){
+          form.save_path = resp.last_save_dir
+        }
+      })
+      .catch(()=>{})
 };
 const resetForm = () => {
     console.log('resetForm');

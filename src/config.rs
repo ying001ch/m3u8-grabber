@@ -14,6 +14,7 @@ static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
     work_num: DEFAULT_WORK_NUM,
     proxy: None,
     combine_type: COMB_BIN,
+    last_save_dir: None,
 });
 lazy_static! {
     /// 任务集合
@@ -31,6 +32,8 @@ pub struct GlobalConfig{
     pub work_num: usize,
     pub proxy: Option<String>,
     pub combine_type: usize,
+    #[serde(default)]
+    pub last_save_dir: Option<String>,
 }
 
 #[derive(Debug, Clone,Copy, PartialEq, Default,Serialize)]
@@ -113,6 +116,19 @@ fn persistence_settings(config: &GlobalConfig){
 fn load_from_persistence() -> anyhow::Result<GlobalConfig>{
     let c = serde_json::from_str(std::fs::read_to_string("settings.json")?.as_str())?;
     Ok(c)
+}
+/// 获取当前全局配置（克隆）
+pub fn get_global_settings() -> GlobalConfig{
+    GLOBAL_CONFIG.read().unwrap().clone()
+}
+/// 设置最近一次保存目录
+pub fn set_last_save_dir(dir: &str, persistence: bool){
+    let mut cfg = GLOBAL_CONFIG.read().unwrap().clone();
+    cfg.last_save_dir = Some(dir.to_string());
+    set_global_settings(&cfg, persistence);
+}
+pub fn get_last_save_dir() -> Option<String>{
+    GLOBAL_CONFIG.read().unwrap().last_save_dir.clone()
 }
 pub fn set_work_num(work_num: usize) {
     let a = GLOBAL_CONFIG.write();

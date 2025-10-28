@@ -18,6 +18,9 @@
                           :value="item.value"/>
                   </el-select>
             </el-form-item>
+            <el-form-item label="上次保存目录" >
+                <el-input v-model="settings.last_save_dir" placeholder="自动保存，上次提交任务时的目录"></el-input>
+            </el-form-item>
             <el-form-item >
                 <el-button type="primary" @click="saveSettings">保存</el-button>
             </el-form-item>
@@ -35,6 +38,7 @@ const settings = reactive({
     proxy: '',
     work_num: 16,
     combine_type: 1,
+    last_save_dir: '',
 })
 const options = [
     {
@@ -73,6 +77,7 @@ const loadSettings = () => {
             settings.proxy = response.proxy
             settings.work_num = response.work_num
             settings.combine_type = response.combine_type
+            settings.last_save_dir = response.last_save_dir || ''
         }).catch((error) => {
           msgBox(error)
         })

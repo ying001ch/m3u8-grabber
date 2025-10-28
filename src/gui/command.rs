@@ -43,6 +43,15 @@ pub fn submit_task(param_str: &str) -> Result<&str, String>{
         .map_err(|e| format!("参数解析失败: {}", e))?;
     log::info!("deserialized = {:?}", param);
 
+    // 记住最近一次的保存目录（取父目录）
+    if !param.save_path.is_empty() {
+        let save_dir = std::path::Path::new(&param.save_path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or(param.save_path.clone());
+        config::set_last_save_dir(&save_dir, true);
+    }
+
     Manager::dispatch(param,true).map(|_|"提交成功").map_err(|e|e.to_string())
 }
 /// 合并视频片段
