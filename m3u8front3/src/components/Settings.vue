@@ -18,7 +18,7 @@
                           :value="item.value"/>
                   </el-select>
             </el-form-item>
-            <el-form-item label="上次保存目录" >
+            <el-form-item label="上次保存目录" style="display: none;">
                 <el-input v-model="settings.last_save_dir" placeholder="自动保存，上次提交任务时的目录"></el-input>
             </el-form-item>
             <el-form-item >
