@@ -127,6 +127,17 @@ impl Into<TaskState> for TaskEntity {
     }
 }
 
+pub fn get_conn() -> &'static Pool<Sqlite>{
+    &POOL
+}
+pub async fn init_table(db: &Pool<Sqlite>) -> Result<(), sqlx::Error>{
+    // 执行 SQL 语句来创建表
+    sqlx::query(CREATE_TABLE_SQL)
+       .execute(db)
+       .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod test{
     use sqlx_sqlite::SqlitePoolOptions;
@@ -205,17 +216,37 @@ mod test{
         println!("st: {:?}", st);
 
     }
+    /// 测试查询表结构
+    #[tokio::test]
+    async fn test_show_table_columns() -> Result<(), sqlx::Error> {
+        use sqlx::Row;
+        use sqlx::Column;
+
+        let db = get_conn();
+
+        // 执行 SQL 语句来创建表
+        let res: Vec<_> = sqlx::query("PRAGMA table_info(TaskEntity);")
+            .fetch_all(db)
+            .await?;
+        println!("rows_affected: {}", res.len());
+
+        // 获取列信息
+        let c = res.get(0).unwrap().columns();
+        for c in c {
+            println!("{}\t{:?}", c.name(), c.type_info());
+        }
+
+        // 获取行数据
+        for row in res {
+            println!("row: {:?}\t{:?}\t{:?}", 
+                row.get::<String,_>("name"),
+                row.get::<String,_>("type"),
+                row.get::<i32,_>("notnull"),
+            );
+        }
+
+        Ok(())
+
+    }
 
 }
-
-pub fn get_conn() -> &'static Pool<Sqlite>{
-    &POOL
-}
-pub async fn init_table(db: &Pool<Sqlite>) -> Result<(), sqlx::Error>{
-    // 执行 SQL 语句来创建表
-    sqlx::query(CREATE_TABLE_SQL)
-       .execute(db)
-       .await?;
-    Ok(())
-}
-
