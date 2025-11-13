@@ -157,6 +157,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
     log::info!("multi_key:{}", multi_key);
 
     let prefix = entity.url_prefix.as_ref().unwrap();
+    let root_prefix = entity.root_prefix.as_ref().unwrap();
     let mut join_v = vec![];
     let semaphore = Arc::new(Semaphore::new(config::get_work_num()));
     let err_vec: Vec<usize> = vec![];
@@ -165,6 +166,7 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
         let clips = Arc::clone(&clips);
         // let clip_clone = clip.clone();
         let prefix = prefix.to_string();
+        let root_prefix = root_prefix.to_string();
         let temp_path = temp_path.clone();
         let sem = semaphore.clone();
         let headers = Arc::clone(&headers);
@@ -180,10 +182,12 @@ async fn download_async(entity: &M3u8Item::M3u8Entity) -> bool {
 
             // 拼接下载地址
             let clip_url = &clips[idx].uri;
-            let down_url = if !clip_url.starts_with("http"){
-                prefix.to_string() + clip_url
+            let down_url = if clip_url.starts_with("/"){
+                root_prefix.to_string() + clip_url
+            } else if clip_url.starts_with("http"){
+                clip_url.to_string() 
             }else{
-                clip_url.to_string()
+                prefix.to_string() + clip_url
             };
             // 设置请求头
             let mut real_headers = vec![];

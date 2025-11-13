@@ -37,6 +37,7 @@ CREATE TABLE if not exists TaskEntity (
     key_num INTEGER NOT NULL,                   --10 usize
     headers TEXT NOT NULL,                      -- Vec<(String, String)> (假设序列化为 JSON 字符串)
     url_prefix TEXT,                            -- Option<String> (允许 NULL)
+    root_prefix TEXT,                            -- Option<String> (允许 NULL)
     save_path TEXT NOT NULL,                    -- String
     temp_path TEXT NOT NULL,                    -- String
     no_combine INTEGER NOT NULL                 --15 bool (0 或 1)
@@ -66,6 +67,7 @@ pub struct TaskEntity {
 
     headers: String,
     url_prefix: Option<String>,
+    root_prefix: Option<String>,
     save_path: String,
     temp_path: String,
     no_combine: bool,
@@ -88,6 +90,7 @@ impl From<&M3u8Entity> for TaskEntity {
 
         def.headers = encode_headers(&entity.headers);
         def.url_prefix = entity.url_prefix.clone();
+        def.root_prefix = entity.root_prefix.clone();
         def.save_path = entity.save_path.clone();
         def.temp_path = entity.temp_path.clone();
         def.no_combine = entity.no_combine;

@@ -106,6 +106,7 @@ pub struct M3u8Entity{
 
     pub headers: Vec<(String,String)>,
     pub url_prefix: Option<String>,
+    pub root_prefix: Option<String>,
     pub save_path: String,
     pub temp_path: String,
     pub no_combine: bool, 
@@ -204,10 +205,14 @@ impl M3u8Entity {
         //找到?位置 如果找不到就返回长度
         let idx1 = m3u8_url.find('?').unwrap_or(m3u8_url.len());
         //找到path部分最后一个 /
-        let idx2 = (&m3u8_url[0..idx1]).rfind('/').ok_or(anyhow!("M3u8地址最后一个 / 找不到"))?;
+        let last_slash = (&m3u8_url[0..idx1]).rfind('/').ok_or(anyhow!("M3u8地址最后一个 / 找不到"))?;
 
-        self.url_prefix = Some((&m3u8_url[0..idx2]).to_string() + "/");
+        self.url_prefix = Some((&m3u8_url[0..last_slash]).to_string() + "/");
         log::info!("url_prefix = {}", self.url_prefix.as_ref().unwrap());
+
+        // get root prefix
+        self.root_prefix = Some(get_root_prefix(m3u8_url)?);
+        log::info!("root_prefix = {}", self.root_prefix.as_ref().unwrap());
 
         self.req_key(param)
     }
@@ -288,6 +293,23 @@ pub fn hex2_byte(mut val: &str) -> Result<[u8; 16]> {
 
     return Ok(bytes);
 }
+fn get_root_prefix(url: &str) -> Result<String> {
+    // Find the protocol and domain part of the URL
+    if let Some(colon_pos) = url.find("://") {
+        let after_protocol = &url[colon_pos + 3..];
+        if let Some(slash_pos) = after_protocol.find('/') {
+            let domain_part = &after_protocol[..slash_pos];
+            Ok(format!("{}://{}", &url[..colon_pos], domain_part))
+        } else {
+            // URL has protocol but no path, just return with trailing slash
+            Ok(format!("{}/", url))
+        }
+    } else {
+        // No protocol found, assume it's a relative URL
+        Err(anyhow!("Invalid URL format: no protocol found"))
+    }
+}
+
 fn cal_hash(input : &str) -> String{
     let mut hasher = DefaultHasher::new();
     input.hash(&mut hasher);
