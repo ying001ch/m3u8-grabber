@@ -184,12 +184,17 @@ pub fn get_task_view(load_db: bool) -> Vec<TaskView> {
 /// 从数据库加载历史任务
 pub async fn load_tasks() -> Result<()>{
     log::info!("---> 加载历史任务");
-    let tasks = db::service::list_all().await?;
-    let mut guard = TASK_MAP.write().unwrap();
-    if !guard.is_empty(){
-        log::warn!("TASK_MAP is not empty, skip load tasks from db");
-        return Ok(());
+    {
+        let guard = TASK_MAP.read().unwrap();
+        if !guard.is_empty(){
+            log::warn!("TASK_MAP is not empty, skip load tasks from db");
+            return Ok(());
+        }
     }
+    let tasks = db::service::list_all().await?;
+
+    // 使用临时map 避免长时间占用锁
+    let mut map = HashMap::<String,TaskState>::with_capacity(tasks.len());
     for mut t in tasks{
         log::info!("历史任务 hash:{} state:{:?} fname:{}",t.hash, t.state, t.file_name);
         let cnt = t.meta.content.as_str();
@@ -205,9 +210,13 @@ pub async fn load_tasks() -> Result<()>{
                 t.state = Signal::Exception;
             },
         }
-        guard.insert(t.hash.to_string(), t);
+        map.insert(t.hash.to_string(), t);
     }
-
+    // 写入TASK_MAP
+    let mut guard = TASK_MAP.write().unwrap();
+    map.into_iter().for_each(|(k,v)|{
+        guard.insert(k.to_string(), v);
+    });
     log::info!("---> 加载历史任务数量：{}",guard.len());
 
     Ok(())
