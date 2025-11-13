@@ -48,13 +48,6 @@ pub trait DbInsertable {
 
     fn as_arguments(&self) -> SqliteArguments<'_>;
 }
-#[derive(Debug,DbInsertable)]
-struct Dog {
-    hobby: String,
-    age: i32,
-    name: String,
-
-}
 /// 忽略未使用的字段提示
 #[allow(dead_code)]
 #[derive(FromRow, Debug, DbInsertable, Default)]
@@ -131,6 +124,87 @@ impl Into<TaskState> for TaskEntity {
     }
 }
 
+#[cfg(test)]
+mod test{
+    use sqlx_sqlite::SqlitePoolOptions;
+
+    use crate::db::{CREATE_TABLE_SQL, DbInsertable, get_conn};
+
+    #[derive(Debug,DbInsertable)]
+    struct Dog {
+        hobby: String,
+        age: i32,
+        name: String,
+
+    }
+
+    #[tokio::test] // Requires the `attributes` feature of `async-std`
+    async fn test_create_table() -> Result<(), sqlx::Error> {
+        let db = get_conn();
+
+        // 执行 SQL 语句来创建表
+        let res = sqlx::query(CREATE_TABLE_SQL)
+        .execute(db)
+        .await?;
+        println!("rows_affected: {}", res.rows_affected());
+        Ok(())
+    }
+
+    #[tokio::test] // Requires the `attributes` feature of `async-std`
+    async fn main() -> Result<(), sqlx::Error> {
+        // Create a connection pool
+        //  for MySQL/MariaDB, use MySqlPoolOptions::new()
+        //  for SQLite, use SqlitePoolOptions::new()
+        //  etc.
+        let pool = SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect("sqlite://local.db?mode=rwc")
+            .await?;
+
+        // Make a simple query to return the given parameter (use a question mark `?` instead of `$1` for MySQL/MariaDB)
+        let row: Vec<(String,)> =
+            sqlx::query_as("SELECT name FROM sqlite_master WHERE type = 'table';")
+                .fetch_all(&pool)
+                .await?;
+        println!(
+            "rows : {:?}",
+            row.iter()
+                .map(|n| n.0.clone())
+                .reduce(|x, y| format!("{},{}", x, y))
+        );
+
+        // 使用sqlx更新表post 的 title 字段
+        let res = sqlx::query("UPDATE post SET title = ? WHERE id = ?")
+            .bind("new title")
+            .bind(1)
+            .execute(&pool)
+            .await?;
+
+        // 使用sqlx查询表post数据
+        let rows = sqlx::query_as::<_, (i32, String, String)>("SELECT * FROM post where id=?")
+            .bind(1)
+            .fetch_all(&pool)
+            .await?;
+        for row in rows {
+            println!("{:?}", row);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_macro() {
+        let dog = Dog{name: "Dog".to_string(), age: 1, hobby: "hobby".to_string()};
+
+        let ins = Dog::insert_statement();
+        println!("ins: {}", ins);
+
+        let st = dog.as_arguments();
+        println!("st: {:?}", st);
+
+    }
+
+}
+
 pub fn get_conn() -> &'static Pool<Sqlite>{
     &POOL
 }
@@ -142,67 +216,3 @@ pub async fn init_table(db: &Pool<Sqlite>) -> Result<(), sqlx::Error>{
     Ok(())
 }
 
-#[tokio::test] // Requires the `attributes` feature of `async-std`
-async fn test_create_table() -> Result<(), sqlx::Error> {
-    let db = get_conn();
-
-    // 执行 SQL 语句来创建表
-    let res = sqlx::query(CREATE_TABLE_SQL)
-       .execute(db)
-       .await?;
-    println!("rows_affected: {}", res.rows_affected());
-    Ok(())
-}
-
-#[tokio::test] // Requires the `attributes` feature of `async-std`
-async fn main() -> Result<(), sqlx::Error> {
-    // Create a connection pool
-    //  for MySQL/MariaDB, use MySqlPoolOptions::new()
-    //  for SQLite, use SqlitePoolOptions::new()
-    //  etc.
-    let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect("sqlite://local.db?mode=rwc")
-        .await?;
-
-    // Make a simple query to return the given parameter (use a question mark `?` instead of `$1` for MySQL/MariaDB)
-    let row: Vec<(String,)> =
-        sqlx::query_as("SELECT name FROM sqlite_master WHERE type = 'table';")
-            .fetch_all(&pool)
-            .await?;
-    println!(
-        "rows : {:?}",
-        row.iter()
-            .map(|n| n.0.clone())
-            .reduce(|x, y| format!("{},{}", x, y))
-    );
-
-    // 使用sqlx更新表post 的 title 字段
-    let res = sqlx::query("UPDATE post SET title = ? WHERE id = ?")
-        .bind("new title")
-        .bind(1)
-        .execute(&pool)
-        .await?;
-
-    // 使用sqlx查询表post数据
-    let rows = sqlx::query_as::<_, (i32, String, String)>("SELECT * FROM post where id=?")
-        .bind(1)
-        .fetch_all(&pool)
-        .await?;
-    for row in rows {
-        println!("{:?}", row);
-    }
-
-    Ok(())
-}
-#[test]
-fn test_macro() {
-    let dog = Dog{name: "Dog".to_string(), age: 1, hobby: "hobby".to_string()};
-
-    let ins = Dog::insert_statement();
-    println!("ins: {}", ins);
-
-    let st = dog.as_arguments();
-    println!("st: {:?}", st);
-
-}
