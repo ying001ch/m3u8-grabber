@@ -114,21 +114,8 @@ impl Into<TaskState> for TaskEntity {
     }
 }
 
-static POOL: OnceCell<Pool<Sqlite>> = tokio::sync::OnceCell::const_new();
-// static POOL2: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
-//     thread::spawn(||{
-//         async_runtime::block_on(async {
-//             let db = SqlitePoolOptions::new()
-//                 .max_connections(5)
-//                 .connect("sqlite://local.db?mode=rwc")
-//                 .await.unwrap();
-//             init_table(&db).await.unwrap();
-//             db
-//         })
-//     }).join().unwrap()
-// });
-
 pub async fn get_conn() -> &'static Pool<Sqlite>{
+    static POOL: OnceCell<Pool<Sqlite>> = tokio::sync::OnceCell::const_new();
     POOL.get_or_init(async ||{
             let db = SqlitePoolOptions::new()
                 .max_connections(5)
