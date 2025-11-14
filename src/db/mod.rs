@@ -1,27 +1,14 @@
 pub mod service;
 pub mod util;
 
-use std::{sync::LazyLock, thread};
-
 use db_derive::DbInsertable;
 use sqlx::{prelude::*, sqlite::SqlitePoolOptions, Pool, Sqlite};
 use sqlx_sqlite::SqliteArguments;
+use tokio::sync::OnceCell;
 use util::decode_headers;
 
-use crate::{async_runtime, config::{Signal, TaskState}, db::util::encode_headers, M3u8Item::M3u8Entity};
+use crate::{config::{Signal, TaskState}, db::util::encode_headers, M3u8Item::M3u8Entity};
 
-static POOL: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
-    thread::spawn(||{
-        async_runtime::block_on(async {
-            let db = SqlitePoolOptions::new()
-                .max_connections(5)
-                .connect("sqlite://local.db?mode=rwc")
-                .await.unwrap();
-            init_table(&db).await.unwrap();
-            db
-        })
-    }).join().unwrap()
-});
 const CREATE_TABLE_SQL: &str = r#"
 CREATE TABLE if not exists TaskEntity (
     id INTEGER PRIMARY KEY,                     --0 u32
@@ -127,8 +114,29 @@ impl Into<TaskState> for TaskEntity {
     }
 }
 
-pub fn get_conn() -> &'static Pool<Sqlite>{
-    &POOL
+static POOL: OnceCell<Pool<Sqlite>> = tokio::sync::OnceCell::const_new();
+// static POOL2: LazyLock<Pool<Sqlite>> = LazyLock::new(||{
+//     thread::spawn(||{
+//         async_runtime::block_on(async {
+//             let db = SqlitePoolOptions::new()
+//                 .max_connections(5)
+//                 .connect("sqlite://local.db?mode=rwc")
+//                 .await.unwrap();
+//             init_table(&db).await.unwrap();
+//             db
+//         })
+//     }).join().unwrap()
+// });
+
+pub async fn get_conn() -> &'static Pool<Sqlite>{
+    POOL.get_or_init(async ||{
+            let db = SqlitePoolOptions::new()
+                .max_connections(5)
+                .connect("sqlite://local.db?mode=rwc")
+                .await.unwrap();
+            init_table(&db).await.unwrap();
+            db
+    }).await
 }
 pub async fn init_table(db: &Pool<Sqlite>) -> Result<(), sqlx::Error>{
     // 执行 SQL 语句来创建表
@@ -154,7 +162,7 @@ mod test{
 
     #[tokio::test] // Requires the `attributes` feature of `async-std`
     async fn test_create_table() -> Result<(), sqlx::Error> {
-        let db = get_conn();
+        let db = get_conn().await;
 
         // 执行 SQL 语句来创建表
         let res = sqlx::query(CREATE_TABLE_SQL)
@@ -222,7 +230,7 @@ mod test{
         use sqlx::Row;
         use sqlx::Column;
 
-        let db = get_conn();
+        let db = get_conn().await;
 
         // 执行 SQL 语句来创建表
         let res: Vec<_> = sqlx::query("PRAGMA table_info(TaskEntity);")

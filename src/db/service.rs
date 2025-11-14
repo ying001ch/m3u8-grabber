@@ -10,7 +10,7 @@ pub async fn add_task(entity: &M3u8Entity) -> anyhow::Result<()> {
     //     qeryas = qeryas.bind(a);
     // }
     let res = sqlx::query_with(TaskEntity::insert_statement().as_str(), argus)
-        .execute(get_conn())
+        .execute(get_conn().await)
         .await?;
     println!("last_insert_rowid: {:?}", res.last_insert_rowid());
 
@@ -25,7 +25,7 @@ pub async fn update_state(hash: &str, sign: Signal, finished: u32, err_msg: Opti
        .bind(err_msg.unwrap_or_default())
        .bind(finished)
        .bind(hash)
-       .execute(get_conn())
+       .execute(get_conn().await)
        .await?;
     println!(" res rows_affected : {:?}", res.rows_affected());
 
@@ -36,7 +36,7 @@ pub async fn del_task(hash: &str) -> anyhow::Result<u64> {
     //TODO 
     let res = sqlx::query("delete from TaskEntity where temp_path =?")
       .bind(hash)
-      .execute(get_conn())
+      .execute(get_conn().await)
       .await?;
     println!(" res rows_affected : {:?}", res.rows_affected());
 
@@ -46,7 +46,7 @@ pub async fn del_task(hash: &str) -> anyhow::Result<u64> {
 pub async fn list_all() -> anyhow::Result<Vec<TaskState>> {
     let res = sqlx::query_as::<_,TaskEntity>("select * from TaskEntity
             order by id desc")
-         .fetch_all(get_conn())
+         .fetch_all(get_conn().await)
         .await?
         .into_iter()
         .map(|entity| entity.into())
@@ -60,7 +60,7 @@ pub async fn list_task(state: Signal) -> anyhow::Result<Vec<TaskEntity>> {
             where state = ?
             order by id desc")
         .bind(state as u32)
-         .fetch_all(get_conn())
+         .fetch_all(get_conn().await)
         .await?;
 
     Ok(res)
