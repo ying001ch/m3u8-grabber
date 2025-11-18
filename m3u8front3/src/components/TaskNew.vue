@@ -1,6 +1,14 @@
 <template>
     <div class="task_new">
-        <el-dialog v-model="dialogShow" title="任务录入" width="600px" @close="resetForm">
+        <el-dialog
+    v-model="dialogShow"
+    title="任务录入"
+    width="600px"
+    @close="resetForm"
+    :z-index="9999"
+    :modal-append-to-body="true"
+    :append-to-body="true"
+    :close-on-click-modal="true">
             <el-form :model="form" label-width="auto" v-if="task_type==1" ref="formRef" @keyup.enter="submitTask">
                 <el-form-item label="地址" >
                     <el-input v-model="form.address" autocomplete="off"></el-input>
