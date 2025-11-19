@@ -19,6 +19,9 @@ pub fn start_tauri(){
     if !cfg!(debug_assertions) {
       window.eval(&format!("window.addEventListener('contextmenu', e => e.preventDefault());"))?;
     }
+    // 初始化配置
+    let config = config::load_global_settings();
+    config::set_global_settings(&config, false);
     Ok(())
   })
   .invoke_handler(tauri::generate_handler![

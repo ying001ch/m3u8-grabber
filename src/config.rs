@@ -93,13 +93,17 @@ pub fn set_global_settings(config: &GlobalConfig, persistence: bool){
     if persistence{
         persistence_settings(config);
     }
-    *GLOBAL_CONFIG.write().unwrap() = config.clone();
-    http_util::update_client();
+    let mut config_w = GLOBAL_CONFIG.write().unwrap();
+    let old_proxy = config_w.proxy.clone();
+    *config_w = config.clone();
+    drop(config_w);
+    if old_proxy != config.proxy{
+        http_util::update_client();
+    }
 }
 pub fn load_global_settings() -> GlobalConfig{
     let settings = match load_from_persistence(){
         Ok(c)=>{
-            set_global_settings(&c,false);
             c
         },
         Err(e)=>{
