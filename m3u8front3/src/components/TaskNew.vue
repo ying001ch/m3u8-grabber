@@ -73,7 +73,13 @@ const open = (task_type_) => {
     invoke('load_settings')
       .then((resp)=>{
         if(resp && resp.last_save_dir){
-          form.save_path = resp.last_save_dir
+          // 确保路径以分隔符结尾
+          let dir = resp.last_save_dir;
+          if(!dir.endsWith('/') && !dir.endsWith('\\')) {
+            // 根据当前系统或路径格式添加合适的分隔符
+            dir = dir + (dir.includes('/') ? '/' : '\\');
+          }
+          form.save_path = dir;
         }
       })
       .catch(()=>{})
