@@ -47,7 +47,7 @@ pub fn submit_task(param_str: &str) -> Result<&str, String>{
     log::info!("deserialized = {:?}", param);
 
     // 记住最近一次的保存目录（取父目录）
-    if !param.save_path.is_empty() {
+    if !param.save_path.is_empty() && !param.save_path.ends_with("\\") && !param.save_path.ends_with("/") {
         let save_dir = std::path::Path::new(&param.save_path)
             .parent()
             .map(|p| p.to_string_lossy().to_string())
