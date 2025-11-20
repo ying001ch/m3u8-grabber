@@ -9,6 +9,7 @@
     "core:app:allow-default-window-icon",
     "core:window:allow-hide",
     "core:window:allow-show",
-    "core:window:allow-destroy"
+    "core:window:allow-destroy",
+     "dialog:allow-open"
   ]
 }

@@ -13,6 +13,12 @@
                 <el-form-item label="地址" >
                     <el-input v-model="form.address" autocomplete="off"></el-input>
                 </el-form-item>
+                <el-form-item label="m3u8文件" >
+                    <div class="file-select">
+                        <el-input v-model="form.m3u8_file" placeholder="选择本地m3u8文件" readonly></el-input>
+                        <el-button @click="selectM3U8File" type="primary">选择文件</el-button>
+                    </div>
+                </el-form-item>
                 <el-form-item label="保存路径" >
                     <el-input v-model="form.save_path" autocomplete="off"></el-input>
                 </el-form-item>
@@ -47,6 +53,7 @@
 
 <script setup>
 import { invoke } from '@tauri-apps/api/core'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { reactive, ref } from 'vue';
 import { ElMessageBox } from 'element-plus'
 
@@ -63,6 +70,7 @@ const form = reactive(
         key_str: null,
         task_type:1,
         no_combine:false,
+        m3u8_file: null,
     }
 );
 const open = (task_type_) => {
@@ -90,6 +98,7 @@ const resetForm = () => {
         delete form[key];
     });
     form.address="";
+    form.m3u8_file = null;
 };
 const emit = defineEmits("submit")
 const submitTask = () => {
@@ -126,6 +135,23 @@ const submitTask = () => {
         })
 };
 
+const selectM3U8File = async () => {
+    try {
+        const selected = await openDialog({
+            multiple: false,
+            filters: [
+                { name: 'M3U8 Files', extensions: ['m3u8'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+        if (selected) {
+            form.m3u8_file = selected;
+        }
+    } catch (error) {
+        console.error('Error selecting file:', error);
+    }
+};
+
 const combine = (event) => {
       if(!this.param.combine_dir || !this.param.save_path){
         msgBox('片段目录和保存路径必填')
@@ -154,3 +180,15 @@ function msgBox(msg){
         })
 }
 </script>
+
+<style scoped>
+.task_new .file-select {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.task_new .file-select .el-input {
+  flex: 1;
+}
+</style>

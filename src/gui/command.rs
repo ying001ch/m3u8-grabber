@@ -11,8 +11,9 @@ use crate::view::TaskView;
 use crate::Manager;
 
 pub fn start_tauri(){
-    //启动图形界面
+    //启动图形界面 
   tauri::Builder::default()
+  .plugin(tauri_plugin_dialog::init())
   .setup(|app| {
     let window = app.get_webview_window("main").unwrap();
     // 生产环境禁用右键菜单

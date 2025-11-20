@@ -136,16 +136,6 @@ impl M3u8Entity {
                 entity.headers = v;
             });
 
-        let m3u8_file = param.m3u8_file.as_ref();
-        let content = 
-        if m3u8_file.is_some() && !m3u8_file.unwrap().is_empty(){
-            std::fs::read_to_string(m3u8_file.unwrap())?
-        } else {
-            //1. 解析m3u8文件
-            let m3u8_url = param.address.as_str();
-            http_util::query_text(m3u8_url, Some(&entity.headers))?
-        };
-
 
         // let mut clip_urls = vec![];
         entity.no_combine = param.no_combine;
@@ -162,6 +152,18 @@ impl M3u8Entity {
         // save_path
         entity.save_path = param.save_path.to_owned();
 
+        let m3u8_file = param.m3u8_file.as_ref();
+        let content = 
+        if m3u8_file.is_some() && !m3u8_file.unwrap().is_empty(){
+            std::fs::read_to_string(m3u8_file.unwrap())?
+        } else {
+            //1. 解析m3u8文件
+            let m3u8_url = param.address.as_str();
+            http_util::query_text(m3u8_url, Some(&entity.headers))?
+        };
+        if content.is_empty(){
+            bail!("M3U8文件内容为空");
+        }
         // 使用m3u8-rs解析m3u8文件
     // 使用m3u8-rs解析m3u8文件
         let m3u8_result = m3u8_rs::parse_media_playlist_res(content.as_bytes());
@@ -172,7 +174,8 @@ impl M3u8Entity {
             },
             Err(e) => {
                 let a= e.map(|inner|String::from_utf8_lossy(inner.input));
-                bail!("M3U8文件 解析错误: {}", &a.to_string()[..100])
+                let error_msg = a.to_string();
+                bail!("M3U8文件 解析错误: {}", &error_msg[..100.min(error_msg.len())])
             },
         }
 
@@ -243,7 +246,7 @@ impl M3u8Entity {
         }
         self.key.copy_from_slice(&raw_bytes);
 
-        self.iv = hex2_byte(first_key.iv.as_ref().unwrap())?;
+        self.iv = hex2_byte(first_key.iv.as_ref().unwrap_or(&"0x00000000000000000000000000000000".to_string()))?;
         log::info!("key_bytes={:?}", self.key);
         Ok(())
     }
