@@ -88,29 +88,14 @@ const open = (task_type_, payload) => {
             dir = dir + (dir.includes('/') ? '/' : '\\');
           }
           form.save_path = dir;
-
-          if (payload) {
-            form.address = payload.url;
-            let title = payload.title || '';
-            if (title) {
-              if (!title.toLowerCase().endsWith('.ts')) {
-                title += '.ts';
-              }
-              form.save_path += title;
-            }
-          }
+        }
+        if (payload) {
+          handlePayload(payload);
         }
       })
       .catch(()=>{
         if (payload) {
-            form.address = payload.url;
-            let title = payload.title || '';
-            if (title) {
-              if (!title.toLowerCase().endsWith('.ts')) {
-                title += '.ts';
-              }
-              form.save_path = title;
-            }
+            handlePayload(payload);
         }
       })
 };
@@ -123,6 +108,21 @@ const resetForm = () => {
     form.m3u8_file = null;
 };
 const emit = defineEmits("submit")
+
+const handlePayload = (payload) => {
+  form.address = payload.url;
+  let title = payload.title || '';
+  if (title) {
+    if (!title.toLowerCase().endsWith('.ts')) {
+      title += '.ts';
+    }
+    if(form.save_path){
+      form.save_path += title;
+    }else{
+      form.save_path = title;
+    }
+  }
+};
 const submitTask = () => {
     console.log('submit');
     console.log('submit： '+ JSON.stringify(form));
