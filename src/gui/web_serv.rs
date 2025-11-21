@@ -40,7 +40,7 @@ struct DownloadPayload {
     url: String,
     title: Option<String>,
 }
-async fn download(Query(query): Query<DownloadQuery>) -> &'static str {
+async fn download(Query(query): Query<DownloadQuery>) -> impl axum::response::IntoResponse {
     log::info!("query：{:?}", query);
     if let Some(app_handle) = APP_HANDLE.get() {
         let payload = DownloadPayload {
@@ -59,5 +59,8 @@ async fn download(Query(query): Query<DownloadQuery>) -> &'static str {
             }
         }
     }
-    "ok"
+    (
+        [("Access-Control-Allow-Origin", "*")],
+        "ok"
+    )
 }
