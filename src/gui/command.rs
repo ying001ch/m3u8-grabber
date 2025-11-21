@@ -11,10 +11,9 @@ use once_cell::sync::OnceCell;
 
 use crate::M3u8Item::DownParam;
 use crate::config::{self, Signal};
+use crate::gui::web_serv;
 use crate::view::TaskView;
 use crate::Manager;
-
-static APP_HANDLE: OnceCell<AppHandle<Wry>> = OnceCell::new();
 
 pub fn start_tauri(){
     //启动图形界面 
@@ -30,10 +29,8 @@ pub fn start_tauri(){
     let config = config::load_global_settings();
     config::set_global_settings(&config, false);
 
-    APP_HANDLE.set(app.handle().clone()).unwrap();
-
     // 启动webServer
-    start_web_server();
+    web_serv::start_web_server(app.handle().clone());
     Ok(())
   })
   .invoke_handler(tauri::generate_handler![
@@ -48,63 +45,6 @@ pub fn start_tauri(){
   ])
   .run(tauri::generate_context!())
   .expect("error while running tauri application");
-}
-
-fn start_web_server(){
-
-    async_runtime::spawn(async move {
-        // 启动 Axum HTTP 服务
-        let app = axum::Router::new()
-            .route("/download", get(download))
-            .route("/", get(hello));
-        let listener_res = tokio::net::TcpListener::bind("0.0.0.0:56881").await;
-        log::info!("启动webServer port 56881");
-        if listener_res.is_err() {
-            log::error!("启动webServer port 失败: {}", listener_res.unwrap_err());
-            return;
-        }
-        log::info!("启动webServer 成功");
-        let res = axum::serve(listener_res.unwrap(), app).await;
-        if res.is_err() {
-            log::error!("启动webServer失败: {}", res.unwrap_err());
-        }
-    });
-
-    async fn hello() -> &'static str {
-        "Hello from Tauri HTTP Server"
-    }
-    #[derive(Deserialize, Debug)]
-    struct DownloadQuery{
-        url: String,
-        title: Option<String>,
-    }
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    struct DownloadPayload {
-        url: String,
-        title: Option<String>,
-    }
-    async fn download(Query(query): Query<DownloadQuery>) -> &'static str {
-        log::info!("query：{:?}", query);
-        if let Some(app_handle) = APP_HANDLE.get() {
-            let payload = DownloadPayload {
-                url: query.url,
-                title: query.title,
-            };
-            if let Err(e) = app_handle.emit("new-download-task", payload) {
-                log::error!("emit new-download-task event fail: {}", e);
-            }
-            if let Some(window) = app_handle.get_webview_window("main") {
-                if let Err(e) = window.show() {
-                    log::error!("Failed to show window: {}", e);
-                }
-                if let Err(e) = window.set_focus() {
-                    log::error!("Failed to focus window: {}", e);
-                }
-            }
-        }
-        "ok"
-    }
-
 }
 
 /// 提交视频下载任务
