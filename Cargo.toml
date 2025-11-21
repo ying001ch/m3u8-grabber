@@ -40,6 +40,7 @@ m3u8-rs = "6.0.0"
 sqlx = {version="0.8.3",features = [ "sqlite", "runtime-tokio", "tls-rustls-ring-webpki" ] }
 sqlx-sqlite = {version = "0.8.3", features = [ "bundled" ] }
 db-derive = {path = "./db-derive"}
+axum = { version = "0.8.4", features = ["macros"] }
 
 [dependencies.reqwest]
 version = "0.12.4"

@@ -55,9 +55,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import TaskNew from './TaskNew.vue';
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { ElMessageBox } from 'element-plus'
 
 // 新增响应式变量，控制折叠项展开状态
@@ -221,6 +222,21 @@ const resumeTask = ()=>{
     signal.value = 'resume';
   });
 };
+
+let unlisten;
+
+onMounted(async () => {
+  unlisten = await listen('new-download-task', (event) => {
+    console.log('Received new-download-task event:', event.payload);
+    taskNewRef.value.open(1, event.payload);
+  });
+});
+
+onUnmounted(() => {
+  if (unlisten) {
+    unlisten();
+  }
+});
 
 function init(){
   get_progress(true);

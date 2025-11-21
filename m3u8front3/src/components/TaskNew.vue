@@ -73,7 +73,7 @@ const form = reactive(
         m3u8_file: null,
     }
 );
-const open = (task_type_) => {
+const open = (task_type_, payload) => {
     console.log('open:'+task_type);
     task_type.value = task_type_
     dialogShow.value = true;
@@ -88,9 +88,31 @@ const open = (task_type_) => {
             dir = dir + (dir.includes('/') ? '/' : '\\');
           }
           form.save_path = dir;
+
+          if (payload) {
+            form.address = payload.url;
+            let title = payload.title || '';
+            if (title) {
+              if (!title.toLowerCase().endsWith('.ts')) {
+                title += '.ts';
+              }
+              form.save_path += title;
+            }
+          }
         }
       })
-      .catch(()=>{})
+      .catch(()=>{
+        if (payload) {
+            form.address = payload.url;
+            let title = payload.title || '';
+            if (title) {
+              if (!title.toLowerCase().endsWith('.ts')) {
+                title += '.ts';
+              }
+              form.save_path = title;
+            }
+        }
+      })
 };
 const resetForm = () => {
     console.log('resetForm');
