@@ -5,7 +5,7 @@ use anyhow::Result;
 use axum::extract::Query;
 use axum::routing::get;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager as tauri_manager, Wry, async_runtime};
+use tauri::{Manager as tauri_manager, async_runtime, AppHandle, Emitter, Wry};
 use M3u8_Grabber::config::GlobalConfig;
 use once_cell::sync::OnceCell;
 
@@ -92,6 +92,14 @@ fn start_web_server(){
             };
             if let Err(e) = app_handle.emit("new-download-task", payload) {
                 log::error!("emit new-download-task event fail: {}", e);
+            }
+            if let Some(window) = app_handle.get_webview_window("main") {
+                if let Err(e) = window.show() {
+                    log::error!("Failed to show window: {}", e);
+                }
+                if let Err(e) = window.set_focus() {
+                    log::error!("Failed to focus window: {}", e);
+                }
             }
         }
         "ok"
