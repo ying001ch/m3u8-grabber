@@ -1,10 +1,10 @@
 use axum::extract::Query;
 use axum::routing::get;
-use once_cell::sync::OnceCell;
+use tokio::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use tauri::{Manager as tauri_manager, async_runtime, AppHandle, Emitter, Wry};
 
-static APP_HANDLE: OnceCell<AppHandle<Wry>> = OnceCell::new();
+static APP_HANDLE: OnceCell<AppHandle<Wry>> = OnceCell::const_new();
 
 pub fn start_web_server(app_handle: AppHandle){
     APP_HANDLE.set(app_handle).unwrap();

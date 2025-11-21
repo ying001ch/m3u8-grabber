@@ -2,12 +2,8 @@
 
 
 use anyhow::Result;
-use axum::extract::Query;
-use axum::routing::get;
-use serde::{Deserialize, Serialize};
-use tauri::{Manager as tauri_manager, async_runtime, AppHandle, Emitter, Wry};
+use tauri::{Manager as tauri_manager};
 use M3u8_Grabber::config::GlobalConfig;
-use once_cell::sync::OnceCell;
 
 use crate::M3u8Item::DownParam;
 use crate::config::{self, Signal};

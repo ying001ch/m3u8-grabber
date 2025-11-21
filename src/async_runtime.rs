@@ -1,9 +1,9 @@
 use std::{future::Future, thread};
 
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 use tokio::{runtime::{Handle, Runtime}, task::JoinHandle};
 
-static RUNTIME: OnceCell<GlobalRuntime> = OnceCell::new();
+static RUNTIME: OnceLock<GlobalRuntime> = OnceLock::new();
 
 struct GlobalRuntime {
     runtime: Runtime,
