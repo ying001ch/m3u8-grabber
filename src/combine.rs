@@ -1,4 +1,4 @@
-use std::{env, io::{BufWriter, Read, Write}, path::Path, process::{Command, Stdio}, string, sync::Arc, thread};
+use std::{io::{BufWriter, Read, Write}, path::{Path, PathBuf}, process::{Command, Stdio}, thread, vec};
 use std::fs::ReadDir;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -10,8 +10,8 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
     let dir_ex = std::fs::read_dir(clip_dir)
         .context(format!("clip_dir: {} not exists!", clip_dir))?;
 
-    let save_path = get_output_name(save_path);
-    log::info!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path);
+    let save_path = get_output_path(save_path);
+    log::info!("开始合并片段，cli_dir:{} save_path:{}", clip_dir, save_path.to_string_lossy());
 
     //判断使用二进制合并还是 ffmpeg
     if comb_type == config::COMB_BIN {
@@ -85,7 +85,7 @@ fn bin_combine(clip_dir: &str, save_path: &Path, async_task: bool) -> Result<(),
     if !save_path.parent().ok_or_else(||anyhow!("save_path parent now exists"))?.exists(){
         std::fs::create_dir_all(save_path.parent().unwrap()).context("创建输出目录失败")?;
     }
-    let output_file = std::fs::File::create(save_path).context("Failed to create the output file")?;
+    let output_file = std::fs::File::create(save_path).context("5")?;    
 
     let cd = clip_dir.to_string();
     let handler = move || {
@@ -162,9 +162,31 @@ fn build_com_file(clip_dir: &str, dir_ex: ReadDir) -> Result<String> {
     Ok(com_file_name)
 }
 
-fn get_output_name(save_path: &str) -> String {
-    if save_path.is_empty() || save_path.ends_with("/") || save_path.ends_with("\\") {
-        return format!("{}output.ts", save_path);
+fn get_output_path(save_path: &str) -> PathBuf {
+    let mut save_path_buf = PathBuf::from(save_path);
+    format_path(&mut save_path_buf);
+    if save_path.is_empty() || save_path_buf.is_dir() {
+        save_path_buf.push("output.ts");
     }
-    save_path.to_string()
+    save_path_buf
+}
+fn format_path(save_path: &mut PathBuf) {
+    let mut temp = save_path.as_path();
+    let mut v = vec![];
+    v.push(save_path.file_name().unwrap().to_string_lossy().to_string());
+    loop {
+        let p = temp.parent();
+        if p.is_none() || p.unwrap().to_string_lossy().is_empty() {
+            break;
+        }
+        let p = p.unwrap();
+        let new_path = p.file_name().unwrap().to_str().unwrap().trim();
+        v.push(new_path.to_string());
+
+        temp = p;
+    }
+    v.reverse();
+        
+    *save_path = PathBuf::from_iter(v);
+    println!("new save_path: {:?}", save_path);
 }
