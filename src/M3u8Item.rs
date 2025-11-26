@@ -150,7 +150,15 @@ impl M3u8Entity {
         }
         log::info!("temp_path : {}", &entity.temp_path);
         // save_path
-        entity.save_path = param.save_path.to_owned();
+        entity.save_path = param.save_path
+            .replace("|"," ")
+            .replace("<", " ")
+            .replace(">", " ")
+            .replace("\"", " ")
+            .replace(":", " ")
+            .replace("*", " ")
+            .replace("?", " ")
+            ;
 
         let m3u8_file = param.m3u8_file.as_ref();
         let content = 
