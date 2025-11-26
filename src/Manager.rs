@@ -34,7 +34,8 @@ pub fn dispatch(param: DownParam, async_task: bool) -> Result<()>{
             work_num: param.worker_num,
             proxy: param.proxy.clone(),
             combine_type: param.combine_type,
-            last_save_dir: None
+            last_save_dir: None,
+            ffmpeg_dir: None
         }, false);
     }
     match param.task_type {

@@ -18,9 +18,13 @@ pub fn combine_clip(clip_dir: &str, save_path: &str, comb_type: usize, async_tas
         return bin_combine(clip_dir, save_path.as_ref(), async_task);
     }
 
-    // 1. 检测环境变量
-    let ffmpeg_dir = std::env::var("FFMPEG_PATH")
-        .context("没有配置 FFMPEG_PATH 环境变量")?;
+    // 1. 优先使用配置的目录，如果未配置则使用环境变量
+    let ffmpeg_dir = if let Some(dir) = config::get_ffmpeg_dir() {
+        dir
+    } else {
+        std::env::var("FFMPEG_PATH")
+            .context("没有配置 FFMPEG_PATH 环境变量")?
+    };
     let ffmpeg = format!("{}/ffmpeg",ffmpeg_dir);
     log::info!("ffmpeg: {}", ffmpeg);
 

@@ -15,6 +15,7 @@ static GLOBAL_CONFIG: RwLock<GlobalConfig> = RwLock::new(GlobalConfig{
     proxy: None,
     combine_type: COMB_BIN,
     last_save_dir: None,
+    ffmpeg_dir: None,
 });
 lazy_static! {
     /// 任务集合
@@ -34,6 +35,8 @@ pub struct GlobalConfig{
     pub combine_type: usize,
     #[serde(default)]
     pub last_save_dir: Option<String>,
+    #[serde(default)]
+    pub ffmpeg_dir: Option<String>,
 }
 
 #[derive(Debug, Clone,Copy, PartialEq, Default,Serialize)]
@@ -162,6 +165,9 @@ pub fn get_proxys() -> String {
 }
 pub fn get_combine_type() -> usize {
     GLOBAL_CONFIG.read().unwrap().combine_type
+}
+pub fn get_ffmpeg_dir() -> Option<String> {
+    GLOBAL_CONFIG.read().unwrap().ffmpeg_dir.clone()
 }
 //----------------------------------------------------------------
 pub fn get_task_view(load_db: bool) -> Vec<TaskView> {

@@ -18,6 +18,16 @@
                           :value="item.value"/>
                   </el-select>
             </el-form-item>
+            <el-form-item label="FFmpeg目录" >
+                <el-row :gutter="10">
+                    <el-col :span="18">
+                        <el-input v-model="settings.ffmpeg_dir" placeholder="可执行文件所在的目录，如 /usr/bin 或 C:\ffmpeg\bin"></el-input>
+                    </el-col>
+                    <el-col :span="6">
+                        <el-button @click="selectFfmpegDir" type="info">选择目录</el-button>
+                    </el-col>
+                </el-row>
+            </el-form-item>
             <el-form-item label="上次保存目录" style="display: none;">
                 <el-input v-model="settings.last_save_dir" placeholder="自动保存，上次提交任务时的目录"></el-input>
             </el-form-item>
@@ -31,6 +41,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 import { ElMessageBox } from 'element-plus'
 
 const settingFormRef = ref(null);
@@ -39,6 +50,7 @@ const settings = reactive({
     work_num: 16,
     combine_type: 1,
     last_save_dir: '',
+    ffmpeg_dir: '',
 })
 const options = [
     {
@@ -78,12 +90,23 @@ const loadSettings = () => {
             settings.work_num = response.work_num
             settings.combine_type = response.combine_type
             settings.last_save_dir = response.last_save_dir || ''
+            settings.ffmpeg_dir = response.ffmpeg_dir || ''
         }).catch((error) => {
           msgBox(error)
         })
 }
 loadSettings()
 
+const selectFfmpegDir = async () => {
+    const dir = await open({
+        multiple: false,
+        directory: true,
+        defaultPath: settings.ffmpeg_dir
+    })
+    if (dir !== null) {
+        settings.ffmpeg_dir = dir
+    }
+}
 
 //-----
 function msgBox(msg){
